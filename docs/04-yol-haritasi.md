@@ -34,23 +34,24 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 
 | Kapsam | Durum |
 |---|---|
-| Çok kiracılı şema, roller, RLS | Hazır (`db/migrations/0001`, `0002`) |
-| Parça ikizi iş kuralları: takma, sökme, sayaç, olay defteri, kalite kapıları | Hazır (`0003`) |
-| TireIQ uzantıları ve ortak kütüphane (3 makine şablonu, 6 kategori) | Hazır (`0004`) |
-| Kendi kimlik sistemimiz: argon2 parola, JWT, dönen yenileme token'ı | Hazır (`0005`, `backend/sparetwin/api/auth.py`) |
-| FastAPI: filo, makine, parça, yaşam döngüsü, inspeksiyon, fotoğraf, QR | Hazır |
-| Dosya deposu: disk ve S3 uyumlu, imzalı link | Hazır |
-| 34 otomatik test (izolasyon, kimlik, iş kuralları, dosya) | Hazır |
-| Docker imajı, geliştirme ve canlı compose, Caddy HTTPS, yedekleme betiği | Hazır |
-| Dashboard görsel prototipi | Hazır (`prototype/`) |
-| Geliştirme VPS'i açmak (AB bölgesi), alan adı, ilk kurulum | Yapılacak |
-| WeWeb projesi: tasarım jetonları, giriş (Custom Auth), firma seçimi | Yapılacak |
-| WeWeb: filo dashboard'u canlı API'ye bağlama | Yapılacak |
-| WeWeb: makine şeması özel bileşeni, parça detay sayfası | Yapılacak |
-| QR etiket standardı ve yazdırma sayfası | Yapılacak |
-| Hata izleme (Sentry vb.) ve basit uptime kontrolü | Yapılacak |
+| Çok kiracılı şema, roller, RLS | ✅ Hazır (`db/migrations/0001`, `0002`) |
+| Parça ikizi iş kuralları: takma, sökme, sayaç, olay defteri, kalite kapıları | ✅ Hazır (`0003`) |
+| TireIQ uzantıları ve ortak kütüphane (3 makine şablonu, 6 kategori) | ✅ Hazır (`0004`, düzeltme `0007`) |
+| Kendi kimlik sistemimiz: argon2 parola, JWT, dönen yenileme token'ı | ✅ Hazır (`0005`) |
+| FastAPI: filo, makine, parça, yaşam döngüsü, inspeksiyon, fotoğraf, QR | ✅ Hazır |
+| Kayıt: saha, makine modeli, katalog (lastik/jant bilgisiyle), makine, parça teslim alma | ✅ Hazır (`0006`) |
+| QR kodu otomatik atama ve A4 etiket yazdırma sayfası | ✅ Hazır (API tarafı) |
+| 43 otomatik test | ✅ Hazır |
+| Codespace ortamı (Python 3.12 + PostgreSQL), GitHub | ✅ Hazır |
+| Dashboard görsel prototipi | ✅ Hazır (`prototype/`) |
+| WeWeb projesi: tasarım jetonları, giriş (Custom Auth), firma seçimi | ⏳ Sırada |
+| WeWeb: filo dashboard'u canlı API'ye bağlama | ⏳ |
+| WeWeb: makine şeması özel bileşeni, parça detay sayfası | ⏳ |
+| WeWeb: makine/parça ekleme formları, etiket yazdır düğmesi | ⏳ |
 
-**Bitiş kriteri:** Demo firmada 4 makine ve 29 parça WeWeb üzerinden görülüyor; bir lastik sökülüp yenisi takıldığında dashboard anında doğru sonucu gösteriyor.
+**Sonraya ertelendi (sunucu ve alan adı işleriyle birlikte):** geliştirme/canlı sunucu, alan adı, hata izleme ve uptime kontrolü. Faz 0 boyunca her şey Codespace'te çalışır.
+
+**Bitiş kriteri:** WeWeb üzerinden yeni bir makine ve lastikleri girilip QR etiketleri yazdırılabiliyor; demo filo dashboard'da görünüyor; bir lastik sökülüp yenisi takıldığında dashboard anında doğru sonucu gösteriyor.
 
 **Kapsam dışı:** Mobil form, rapor, faturalama.
 

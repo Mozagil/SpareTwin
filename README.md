@@ -16,8 +16,8 @@ Makine imalatçıları, üretim fabrikaları ve iş makinesi filoları için **d
 
 | Yol | İçerik |
 |---|---|
-| `backend/sparetwin/` | FastAPI uygulaması: kimlik, filo, yaşam döngüsü, inspeksiyon, dosyalar |
-| `backend/tests/` | 34 test: kimlik, firma izolasyonu, iş kuralları, fotoğraf, S3 |
+| `backend/sparetwin/` | FastAPI uygulaması: kimlik, kayıt, filo, yaşam döngüsü, inspeksiyon, dosyalar, QR etiket |
+| `backend/tests/` | 43 test: kimlik, firma izolasyonu, kayıt, iş kuralları, fotoğraf, etiket, S3 |
 | `db/migrations/` | Şema, RLS, iş kuralları, TireIQ modülü, kimlik fonksiyonları |
 | `db/seed/demo.sql` | Demo firma: 4 makine, 29 takılı parça, ölçüm geçmişi |
 | `deploy/` | Canlı ortam: compose, Caddyfile, yedekleme betiği |
@@ -26,12 +26,12 @@ Makine imalatçıları, üretim fabrikaları ve iş makinesi filoları için **d
 
 ## Codespace'te başlangıç
 
-Codespace açılınca Python paketleri kurulur, `.env` oluşturulur ve PostgreSQL container'ı başlar.
+Codespace iki container ile açılır (Python 3.12 + PostgreSQL 17); Python paketleri kurulur ve `.env` oluşturulur.
 
 ```bash
 make reset      # şemayı kur + demo veri
 make api        # API: 8000 portu, dokümantasyon /docs
-make test       # 34 test
+make test       # 43 test
 make prototype  # dashboard prototipi: 8080 portu
 ```
 
@@ -64,20 +64,10 @@ make reset && make test
 
 Bir dosyanın silinmesi gerekiyorsa (bu sürümdeki `supabase/` klasörü ve `package.json` gibi) zip'in yanında not olarak belirtilir.
 
-## Canlı ortam (bulut)
+## Canlı ortam
 
-Tek VPS (AB bölgesi önerilir), Docker kurulu:
-
-```bash
-git clone <repo> /opt/sparetwin && cd /opt/sparetwin/deploy
-cp .env.prod.example .env && nano .env      # alan adı, parolalar, JWT_SECRET
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml exec api python -m sparetwin.cli create-tenant --name "Firma A.Ş." --slug firma
-docker compose -f docker-compose.prod.yml exec api python -m sparetwin.cli create-user --email ali@firma.com --name "Ali Yılmaz" --tenant firma --role owner
-```
-
-Caddy HTTPS sertifikasını kendisi alır. API açılışta eksik migrasyonları uygular. Yedekleme: `deploy/backup.sh` (cron örneği dosyada).
+Şimdilik yok; her şey Codespace'te çalışıyor. Sunucu ve alan adı işlerine geçildiğinde `deploy/` klasöründeki paket kullanılacak (Caddy ile HTTPS, API, PostgreSQL, yedekleme betiği).
 
 ## Şu anki durum
 
-Faz 0'ın backend tarafı hazır ve test edildi. Sıradaki iş: geliştirme sunucusunu açmak ve WeWeb arayüzünü API'ye bağlamak. Ayrıntı: `docs/04-yol-haritasi.md`.
+Faz 0'ın backend tarafı hazır ve test edildi (kayıt ve QR etiket dahil). Sıradaki iş: WeWeb arayüzünü Codespace'teki API'ye bağlamak. Ayrıntı: `docs/04-yol-haritasi.md`.

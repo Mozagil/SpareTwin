@@ -6,7 +6,7 @@ Platformun kalbi üç kavram:
 
 1. **Makine** (`assets`): Bir yükleyici, reach stacker, forklift, pres. Motor saati ve kilometresi var.
 2. **Pozisyon** (`template_positions`): Makine modelinde bir parçanın takılabileceği yuva. "Ön aks sol", "Kaldırma silindiri sağ", "Akü". Her pozisyon hangi kategoriden parça kabul ettiğini bilir.
-3. **Parça ikizi** (`part_items`): Seri numaralı, QR etiketli tek bir fiziksel parça. Bir pozisyona takılır, sökülür, tamire gider, kaplanır, başka makineye geçer, hurdaya ayrılır. Her adım `part_events` defterine yazılır.
+3. **Parça ikizi** (`part_items`): Seri numaralı, QR etiketli tek bir fiziksel parça. QR kodu verilmezse otomatik atanır (`ST-P-` + 10 karakter; makinelerde `ST-A-`). Bir pozisyona takılır, sökülür, tamire gider, kaplanır, başka makineye geçer, hurdaya ayrılır. Her adım `part_events` defterine yazılır.
 
 Lastik bu modelde özel değil: `tire` kategorisinde bir parça. Diş derinliği bir ölçüm, kaplama bir olay. Bu sayede aynı ekranlar ve aynı kurallar hidrolik silindir için de çalışır.
 

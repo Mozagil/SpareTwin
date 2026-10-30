@@ -99,6 +99,28 @@ Koleksiyonları gereksiz yere sayfa açılışında değil, ilgili seçim deği�
 
 Her yazma işleminden sonra etkilenen koleksiyonları (`fleet`, `machine`, `part`) yenileyin.
 
+### Kayıt formları (manager ve üstü; parça teslim alma teknisyen de yapabilir)
+
+| Form | İstek | Not |
+|---|---|---|
+| Saha ekle | `POST /sites` | `{"name", "kind", "city"}` |
+| Makine modeli ekle | `POST /catalog/asset-models` | Şablon seçimi için önce `GET /catalog/templates` |
+| Katalog kalemi ekle | `POST /catalog/parts` | Lastikse `tire` nesnesi zorunlu (ebat, yapı, orijinal diş, hurda sınırı); jantsa `rim` isteğe bağlı; diğer parçalarda `expected_life_hours` |
+| Makine ekle | `POST /assets` | Model seçimi `GET /catalog/asset-models`. QR boş bırakılırsa otomatik atanır |
+| Makine düzenle | `PATCH /assets/{id}` | Yalnızca gönderilen alanlar değişir. Sayaç burada değil, `/meter` ile |
+| Parça teslim al | `POST /parts` | Aynı kalemden birden çok adet tek seferde: `{"part_id", "site_id", "items": [{"serial_no": "..."}, ...]}`. Parçalar stoğa girer |
+| Katalog listesi | `GET /catalog/parts?category=tire` | Her kalemde `in_stock` ve `installed` adetleri |
+
+Yeni takılan lastikte henüz diş ölçümü yoksa `band` değeri `unknown` gelir. Arayüzde bunu gri ve "ölçüm bekliyor" olarak gösterin, kırmızı değil.
+
+### QR etiketleri
+
+1. Kullanıcı listeden makine ve/veya parçaları seçer.
+2. `POST /labels` gövde `{"asset_ids": [...], "part_ids": [...], "skip": 0}` → `{"url", "count"}`. `skip`, yarısı kullanılmış etiket kâğıdında baştan atlanacak etiket sayısıdır.
+3. Dönen `url`'yi **yeni sekmede açın**. Sayfa A4'te 3 × 7 = 21 etiket (63,5 × 38,1 mm, yaygın hazır etiket kâğıdı) ve "Yazdır" düğmesiyle gelir; oturum gerektirmez, birkaç dakika geçerlidir.
+
+QR'ın içinde yalnızca kod vardır (`ST-A-...` makine, `ST-P-...` parça). Uygulamadaki tarayıcı kodu okuyup `GET /qr/{kod}` ile kaydı bulur.
+
 ## 7. Mobil inspeksiyon akışı
 
 1. `POST /inspections` gövde `{"asset_id": ..., "asset_hours": 9400}` → `id`.
@@ -131,4 +153,6 @@ Formdaki alanları elle değil, kategorinin `measurement_profile` listesinden ü
 - [ ] Makine şeması özel bileşen olarak, seçim parça ikizini açıyor
 - [ ] Parça ikizi: bilgiler, aşınma grafiği, zaman çizelgesi
 - [ ] Takma/sökme modalı; API hata mesajları kullanıcıya görünüyor
+- [ ] Makine ekleme, katalog kalemi ekleme, parça teslim alma formları
+- [ ] Etiket seçimi ve yazdırma sayfasını yeni sekmede açma
 - [ ] İki farklı firmanın kullanıcısıyla izolasyon elle de doğrulandı
