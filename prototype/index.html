@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SpareTwin · Filo durumu (prototip)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ---------- Tasarım jetonları (WeWeb'de aynı isimlerle tanımlanacak) ---------- */
+  :root {
+    color-scheme: light;
+    --bg: #E4E8EA;          /* beton */
+    --surface: #F7F8F8;
+    --surface-2: #ECEFF1;
+    --ink: #17202A;
+    --muted: #55616D;
+    --line: #C8D0D6;
+    --brand: #0F5B66;       /* petrol */
+    --brand-ink: #FFFFFF;
+    --rubber: #2B3138;
+    --rubber-groove: #47505A;
+    --body: #CBD3D9;
+    --body-edge: #9AA6AF;
+    --ok: #2C8A55;
+    --watch: #C08600;
+    --critical: #C23F2B;
+    --unknown: #8A949C;
+    --rail: #17202A;
+    --rail-ink: #E4E8EA;
+    --radius-l: 14px;
+    --radius-s: 8px;
+    --font: "Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-cond: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #10151A; --surface: #172028; --surface-2: #1E2831; --ink: #E3E8EC; --muted: #95A2AD;
+      --line: #2C3843; --brand: #4DB1BD; --brand-ink: #0B1418; --rubber: #0B0F13; --rubber-groove: #2A333C;
+      --body: #2A3641; --body-edge: #43525F; --ok: #4CB97A; --watch: #E2A82A; --critical: #E5654F; --unknown: #6E7A84; --rail: #0A0E12; --rail-ink: #C9D2D9;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #10151A; --surface: #172028; --surface-2: #1E2831; --ink: #E3E8EC; --muted: #95A2AD;
+    --line: #2C3843; --brand: #4DB1BD; --brand-ink: #0B1418; --rubber: #0B0F13; --rubber-groove: #2A333C;
+    --body: #2A3641; --body-edge: #43525F; --ok: #4CB97A; --watch: #E2A82A; --critical: #E5654F; --unknown: #6E7A84; --rail: #0A0E12; --rail-ink: #C9D2D9;
+  }
+
+  * { box-sizing: border-box; }
+  :root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  .app { display: grid; grid-template-columns: 64px minmax(0, 1fr); min-height: 100vh; }
+  .rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 0; }
+  .rail .mark { width: 36px; height: 36px; border-radius: 10px; background: var(--brand); display: grid; place-items: center; margin-bottom: 14px; }
+  .rail a { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; color: var(--rail-ink); opacity: .55; }
+  .rail a[aria-current="page"] { opacity: 1; background: color-mix(in srgb, var(--rail-ink) 14%, transparent); }
+  .rail svg { width: 22px; height: 22px; }
+
+  main { padding: 20px clamp(14px, 3vw, 32px) 40px; max-width: 1440px; width: 100%; }
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 18px; }
+  .top h1 { font-family: var(--font-cond); font-weight: 600; font-size: 30px; letter-spacing: .2px; margin: 0; }
+  .top .site { color: var(--muted); }
+  .top .spacer { flex: 1; }
+  .search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; min-width: 240px; color: var(--muted); }
+  .search input { border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; width: 100%; }
+  .btn { border: 0; border-radius: 999px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
+  .btn-primary { background: var(--brand); color: var(--brand-ink); }
+  .btn-ghost { background: var(--surface-2); }
+  .theme { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; cursor: pointer; color: var(--muted); }
+
+  /* ---------- Filo şeridi ---------- */
+  .fleet { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(220px, 1fr); gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
+  .unit { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 12px 14px; cursor: pointer; display: grid; gap: 8px; position: relative; }
+  .unit[aria-pressed="true"] { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+  .unit .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .unit .code { font-family: var(--font-cond); font-weight: 700; font-size: 22px; }
+  .unit .meta { color: var(--muted); font-size: 13px; }
+  .pips { display: flex; gap: 3px; }
+  .pip { height: 8px; flex: 1; border-radius: 2px; }
+  .unit .alert { font-size: 13px; font-weight: 600; }
+
+  /* ---------- Ana ızgara ---------- */
+  .grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 16px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px; min-width: 0; }
+  .panel h2 { font-family: var(--font-cond); font-weight: 600; font-size: 21px; margin: 0; }
+  .panel .sub { color: var(--muted); font-size: 14px; margin: 2px 0 0; }
+  .panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+
+  .seg { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; }
+  .seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--muted); font-weight: 500; }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+
+  .schematic-wrap { background: var(--surface-2); border-radius: var(--radius-s); overflow-x: auto; }
+  .schematic { display: block; width: 100%; min-width: 520px; height: auto; }
+  .slot { cursor: pointer; }
+  .slot .halo { fill: none; stroke: var(--brand); stroke-width: 3; opacity: 0; }
+  .slot[aria-pressed="true"] .halo { opacity: 1; }
+  .slot:focus { outline: none; }
+  .slot:focus-visible .halo { opacity: 1; stroke-dasharray: 4 3; }
+  .slot-label { font-family: var(--font-cond); font-size: 13px; fill: var(--muted); }
+  .slot-val { font-family: var(--font-cond); font-weight: 700; font-size: 15px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; color: var(--muted); font-size: 13px; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; background: var(--c); vertical-align: -1px; }
+
+  /* ---------- Parça ikizi paneli ---------- */
+  .twin .chip { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 10px; background: color-mix(in srgb, var(--c) 16%, transparent); color: var(--c); }
+  .twin .title { font-family: var(--font-cond); font-weight: 600; font-size: 26px; line-height: 1.1; margin: 6px 0 2px; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+  .fact { background: var(--surface-2); border-radius: var(--radius-s); padding: 10px 12px; }
+  .fact dt { color: var(--muted); font-size: 12.5px; }
+  .fact dd { margin: 2px 0 0; font-family: var(--font-cond); font-weight: 600; font-size: 20px; }
+  .wear svg { width: 100%; height: auto; display: block; }
+  .wear text { font-family: var(--font); font-size: 11px; fill: var(--muted); }
+  .verdict { margin: 10px 0 0; font-size: 14.5px; }
+  .verdict strong { color: var(--c); }
+  .life { margin-top: 6px; }
+  .life .bar { height: 12px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+  .life .bar i { display: block; height: 100%; background: var(--c); }
+  .timeline { list-style: none; padding: 0; margin: 18px 0 0; border-left: 2px solid var(--line); }
+  .timeline li { position: relative; padding: 0 0 12px 16px; font-size: 14px; }
+  .timeline li::before { content: ""; position: absolute; left: -6px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 2px solid var(--brand); }
+  .timeline time { color: var(--muted); font-size: 12.5px; display: block; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+  /* ---------- Alt satır ---------- */
+  .todo { list-style: none; margin: 6px 0 0; padding: 0; }
+  .todo li { display: grid; grid-template-columns: 6px 1fr auto; gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid var(--line); }
+  .todo li:first-child { border-top: 0; }
+  .todo .sev { width: 6px; align-self: stretch; border-radius: 3px; background: var(--c); }
+  .todo .what { font-weight: 600; }
+  .todo .why { color: var(--muted); font-size: 13.5px; }
+  .todo button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+  .cph { display: grid; gap: 10px; margin-top: 10px; }
+  .cph-row { display: grid; grid-template-columns: 56px 1fr 64px; gap: 10px; align-items: center; font-size: 14px; }
+  .cph-row b { font-family: var(--font-cond); font-size: 17px; }
+  .cph-row .track { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+  .cph-row .track i { display: block; height: 100%; background: var(--brand); border-radius: 5px; }
+  .cph-row span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+
+  .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: 90vw; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 1000px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 640px) {
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .schematic { min-width: 460px; }
+    .rail { display: none; }
+    .search { min-width: 0; flex: 1 1 100%; order: 5; }
+    .facts { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Ana menü">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+    </div>
+    <a href="#" aria-current="page" aria-label="Filo durumu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></a>
+    <a href="#" aria-label="Parçalar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg></a>
+    <a href="#" aria-label="İnspeksiyonlar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4h6v3H9z"/><path d="M7 5H5v16h14V5h-2"/><path d="m9 14 2 2 4-4"/></svg></a>
+    <a href="#" aria-label="Stok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l9-5 9 5-9 5z"/><path d="M3 8v8l9 5 9-5V8"/></svg></a>
+    <a href="#" aria-label="Raporlar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></a>
+  </nav>
+
+  <main>
+    <header class="top">
+      <div>
+        <h1>Filo durumu</h1>
+        <div class="site">Demo Liman ve Maden A.Ş. · tüm sahalar</div>
+      </div>
+      <div class="spacer"></div>
+      <label class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3z"/><path d="M15 15h2v2h-2zM19 19h2v2h-2zM15 19h2"/></svg>
+        <input type="search" placeholder="Seri no, makine veya QR okut" aria-label="Parça veya makine ara">
+      </label>
+      <button class="btn btn-primary" data-msg="WeWeb sürümünde bu düğme mobil inspeksiyon formunu açar.">İnspeksiyon başlat</button>
+      <button class="theme" id="theme" aria-label="Açık/koyu tema">Tema</button>
+    </header>
+
+    <section class="fleet" id="fleet" aria-label="Makineler"></section>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="machine-title"></h2>
+            <p class="sub" id="machine-sub"></p>
+          </div>
+          <div class="seg" role="group" aria-label="Gösterilen parçalar">
+            <button aria-pressed="true" data-filter="tire">Lastikler</button>
+            <button aria-pressed="false" data-filter="all">Tüm parçalar</button>
+          </div>
+        </div>
+        <div class="schematic-wrap"><svg class="schematic" id="schematic" viewBox="0 0 640 360" role="img" aria-label="Makine üstten görünüş şeması"></svg></div>
+        <div class="legend">
+          <span style="--c: var(--ok)">%40 üzeri</span>
+          <span style="--c: var(--watch)">%20–40 takipte</span>
+          <span style="--c: var(--critical)">%20 altı kritik</span>
+          <span style="--c: var(--unknown)">Veri yok</span>
+        </div>
+      </section>
+
+      <section class="panel twin" id="twin" aria-live="polite"></section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Öncelikli işler</h2>
+            <p class="sub">Kalan ömre göre sıralı; en acil olan en üstte</p>
+          </div>
+        </div>
+        <ul class="todo" id="todo"></ul>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Lastik maliyeti, saat başına</h2>
+            <p class="sub">Makinedeki tüm lastikler, ömür sonunda beklenen değer</p>
+          </div>
+        </div>
+        <div class="cph" id="cph"></div>
+        <p class="note">Hesap: lastik maliyeti ÷ (çalıştığı saat + ölçülen aşınma hızıyla kalan saat). Erken söküm ve kötü zemin bu değeri yükseltir; hedef filo içinde en düşük makineye yaklaşmak.</p>
+      </section>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* Demo veri: db/seed/demo.sql ile birebir aynı. WeWeb'de bu diziler
+   GET /assets ve GET /assets/{id} uç noktalarından gelir. */
+const TEMPLATES = {
+  loader: [
+    ["A1-L","Ön aks sol","tire",22,30],["A1-R","Ön aks sağ","tire",22,70],
+    ["A2-L","Arka aks sol","tire",74,30],["A2-R","Arka aks sağ","tire",74,70],
+    ["LIFT-CYL-L","Kaldırma silindiri sol","hyd_cylinder",10,40],["LIFT-CYL-R","Kaldırma silindiri sağ","hyd_cylinder",10,60],
+    ["TILT-CYL","Kepçe devirme silindiri","hyd_cylinder",6,50],["MAIN-PUMP","Ana hidrolik pompa","hyd_pump",58,50]],
+  reach_stacker: [
+    ["A1-LO","Ön aks sol dış","tire",24,18],["A1-LI","Ön aks sol iç","tire",24,32],
+    ["A1-RI","Ön aks sağ iç","tire",24,68],["A1-RO","Ön aks sağ dış","tire",24,82],
+    ["A2-L","Arka aks sol","tire",80,28],["A2-R","Arka aks sağ","tire",80,72],
+    ["BOOM-CYL","Bom kaldırma silindiri","hyd_cylinder",46,50]],
+  forklift: [
+    ["A1-L","Ön aks sol","tire",28,26],["A1-R","Ön aks sağ","tire",28,74],
+    ["A2-L","Arka aks sol","tire",76,30],["A2-R","Arka aks sağ","tire",76,70],
+    ["MAST-CYL","Direk kaldırma silindiri","hyd_cylinder",10,50],["BATTERY","Akü","battery",56,50]]
+};
+const MACHINES = [
+  { code:"LD-07", model:"Volvo L220H", kind:"Lastikli yükleyici", layout:"loader", site:"Soma açık ocak", hours:12480 },
+  { code:"LD-09", model:"Volvo L220H", kind:"Lastikli yükleyici", layout:"loader", site:"Soma açık ocak", hours:6210 },
+  { code:"RS-02", model:"Kalmar DRG450", kind:"Reach stacker", layout:"reach_stacker", site:"Ambarlı liman sahası", hours:18900 },
+  { code:"FL-14", model:"Linde H50", kind:"Forklift", layout:"forklift", site:"Ambarlı liman sahası", hours:9340 }
+];
+const TIRE = {
+  "29.5R25": { name:"Michelin 29.5R25 L-4 radyal", otd:55, scrap:8 },
+  "18.00-25": { name:"Bridgestone 18.00-25 E-4 diyagonal", otd:45, scrap:6 },
+  "7.00-12": { name:"Trelleborg 7.00-12 dolgu lastik", otd:22, scrap:5 }
+};
+// [makine, pozisyon, tip/ebat, seri, takıldığı saat, önceki saat, maliyet, önceki ölçüm, güncel ölçüm, ömür(saat), birim]
+const ITEMS = [
+  ["LD-07","A1-L","29.5R25","MX29-0412",10900,0,9800,44,38],["LD-07","A1-R","29.5R25","MX29-0413",10900,0,9800,42,35],
+  ["LD-07","A2-L","29.5R25","MX29-0298",10900,2100,9800,22,14],["LD-07","A2-R","29.5R25","MX29-0301",10900,1800,9800,27,21],
+  ["LD-07","LIFT-CYL-L","Volvo L220H kaldırma silindiri","VLC-88121",0,0,4500,4,7,12000,"mm çökme"],
+  ["LD-07","LIFT-CYL-R","Volvo L220H kaldırma silindiri","VLC-88122",7000,0,4500,3,3,12000,"mm çökme"],
+  ["LD-07","TILT-CYL","Volvo L220H devirme silindiri","VTC-50310",6200,0,3900,null,null,12000],
+  ["LD-07","MAIN-PUMP","Rexroth A10VO-140 pompa","RX-140-7781",4000,0,6100,null,null,15000],
+  ["LD-09","A1-L","29.5R25","MX29-0518",5100,0,9800,49,46],["LD-09","A1-R","29.5R25","MX29-0519",5100,0,9800,48,45],
+  ["LD-09","A2-L","29.5R25","MX29-0520",5100,0,9800,50,47],["LD-09","A2-R","29.5R25","MX29-0521",5100,0,9800,50,46],
+  ["LD-09","LIFT-CYL-L","Volvo L220H kaldırma silindiri","VLC-91002",0,0,4500,null,null,12000],
+  ["LD-09","LIFT-CYL-R","Volvo L220H kaldırma silindiri","VLC-91003",0,0,4500,null,null,12000],
+  ["LD-09","TILT-CYL","Volvo L220H devirme silindiri","VTC-51877",0,0,3900,null,null,12000],
+  ["LD-09","MAIN-PUMP","Rexroth A10VO-140 pompa","RX-140-9102",0,0,6100,null,null,15000],
+  ["RS-02","A1-LO","18.00-25","BS18-2201",17200,0,3200,30,24],["RS-02","A1-LI","18.00-25","BS18-2202",17200,0,3200,29,22],
+  ["RS-02","A1-RI","18.00-25","BS18-2203",17200,0,3200,31,25],["RS-02","A1-RO","18.00-25","BS18-2204",17200,0,3200,26,17],
+  ["RS-02","A2-L","18.00-25","BS18-1987",16100,0,3200,37,33],["RS-02","A2-R","18.00-25","BS18-1988",16100,0,3200,38,34],
+  ["RS-02","BOOM-CYL","Kalmar DRG450 bom silindiri","KB-450-0071",0,0,9350,9,14,20000,"mm çökme"],
+  ["FL-14","A1-L","7.00-12","TB7-3301",7900,0,420,15,12],["FL-14","A1-R","7.00-12","TB7-3302",7900,0,420,15,13],
+  ["FL-14","A2-L","7.00-12","TB7-3303",7900,0,420,18,16],["FL-14","A2-R","7.00-12","TB7-3304",7900,0,420,18,16],
+  ["FL-14","MAST-CYL","Linde H50 direk silindiri","LM-H50-221",0,0,1900,null,null,15000],
+  ["FL-14","BATTERY","Varta 80V çekiş aküsü","VB80-5512",3000,0,5400,82,79,10000,"V"]
+];
+
+const nf = new Intl.NumberFormat("tr-TR");
+const nf1 = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 1 });
+const usd = v => "$" + new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+
+// ---------- v_part_health ile aynı hesap ----------
+const parts = ITEMS.map(r => {
+  const [mc, pos, spec, serial, instAt, prevH, cost, prevVal, curVal, life, unit] = r;
+  const m = MACHINES.find(x => x.code === mc);
+  const slot = TEMPLATES[m.layout].find(s => s[0] === pos);
+  const hours = prevH + Math.max(m.hours - instAt, 0);
+  const p = { machine: mc, pos, label: slot[1], cat: slot[2], x: slot[3], y: slot[4], serial, cost, hours, instAt, prevH, prevVal, curVal, unit };
+  if (p.cat === "tire") {
+    const t = TIRE[spec];
+    Object.assign(p, { name: t.name, size: spec, otd: t.otd, scrap: t.scrap });
+    p.pct = Math.max((curVal - t.scrap) / (t.otd - t.scrap) * 100, 0);
+    p.wear = (t.otd - curVal) / hours;                         // mm/saat
+    p.left = p.wear > 0 ? Math.round((curVal - t.scrap) / p.wear) : null;
+    p.prevHours = prevH + (Math.round(m.hours - (m.hours - instAt) * 0.4) - instAt);
+  } else {
+    p.name = spec; p.life = life;
+    p.pct = Math.max(100 * (1 - hours / life), 0);
+    p.left = Math.max(life - hours, 0);
+  }
+  p.band = p.pct < 20 ? "critical" : p.pct < 40 ? "watch" : "ok";
+  return p;
+});
+const BAND_TXT = { ok: "İyi durumda", watch: "Takipte", critical: "Kritik" };
+const CAT_TXT = { tire: "Lastik", hyd_cylinder: "Hidrolik silindir", hyd_pump: "Hidrolik pompa", battery: "Akü" };
+
+let state = { machine: "LD-07", filter: "tire", part: null };
+
+// ---------- Filo şeridi ----------
+function renderFleet() {
+  const el = document.getElementById("fleet");
+  el.innerHTML = MACHINES.map(m => {
+    const ps = parts.filter(p => p.machine === m.code);
+    const crit = ps.filter(p => p.band === "critical").length;
+    const watch = ps.filter(p => p.band === "watch").length;
+    const alert = crit ? `<span class="alert" style="color:var(--critical)">${crit} kritik parça</span>`
+               : watch ? `<span class="alert" style="color:var(--watch)">${watch} parça takipte</span>`
+               : `<span class="alert" style="color:var(--ok)">Sorun yok</span>`;
+    return `<button class="unit" aria-pressed="${m.code === state.machine}" data-code="${m.code}">
+      <div class="row"><span class="code">${m.code}</span><span class="meta">${nf.format(m.hours)} saat</span></div>
+      <div class="meta">${m.model} · ${m.site}</div>
+      <div class="pips" aria-hidden="true">${ps.map(p => `<i class="pip" style="background:var(--${p.band})"></i>`).join("")}</div>
+      ${alert}
+    </button>`;
+  }).join("");
+  el.querySelectorAll(".unit").forEach(b => b.onclick = () => { state.machine = b.dataset.code; state.part = null; renderAll(); });
+}
+
+// ---------- Makine şeması ----------
+const X = v => 40 + v * 5.6, Y = v => 20 + v * 3.2;
+function bodyShape(layout) {
+  const s = `fill="var(--body)" stroke="var(--body-edge)" stroke-width="2"`;
+  if (layout === "loader") return `
+    <rect x="${X(-4)}" y="${Y(14)}" width="44" height="${Y(86)-Y(14)}" rx="6" ${s}/>
+    <rect x="${X(12)}" y="${Y(38)}" width="${X(42)-X(12)}" height="${Y(62)-Y(38)}" rx="10" ${s}/>
+    <circle cx="${X(46)}" cy="${Y(50)}" r="14" ${s}/>
+    <rect x="${X(50)}" y="${Y(34)}" width="${X(96)-X(50)}" height="${Y(66)-Y(34)}" rx="14" ${s}/>
+    <rect x="${X(60)}" y="${Y(38)}" width="${X(72)-X(60)}" height="${Y(62)-Y(38)}" rx="6" fill="var(--surface)" stroke="var(--body-edge)" stroke-width="2"/>
+    <text x="${X(66)}" y="${Y(52)}" text-anchor="middle" class="slot-label">kabin</text>`;
+  if (layout === "reach_stacker") return `
+    <rect x="${X(-4)}" y="${Y(8)}" width="26" height="${Y(92)-Y(8)}" rx="4" ${s}/>
+    <rect x="${X(14)}" y="${Y(38)}" width="${X(96)-X(14)}" height="${Y(62)-Y(38)}" rx="12" ${s}/>
+    <rect x="${X(0)}" y="${Y(46)}" width="${X(70)-X(0)}" height="${Y(54)-Y(46)}" rx="4" fill="var(--body-edge)"/>
+    <rect x="${X(48)}" y="${Y(64)}" width="${X(62)-X(48)}" height="${Y(84)-Y(64)}" rx="6" fill="var(--surface)" stroke="var(--body-edge)" stroke-width="2"/>
+    <text x="${X(55)}" y="${Y(76)}" text-anchor="middle" class="slot-label">kabin</text>`;
+  return `
+    <rect x="${X(-6)}" y="${Y(30)}" width="${X(6)-X(-6)}" height="5" fill="var(--body-edge)"/>
+    <rect x="${X(-6)}" y="${Y(68)}" width="${X(6)-X(-6)}" height="5" fill="var(--body-edge)"/>
+    <rect x="${X(4)}" y="${Y(20)}" width="16" height="${Y(80)-Y(20)}" rx="3" ${s}/>
+    <rect x="${X(16)}" y="${Y(22)}" width="${X(94)-X(16)}" height="${Y(78)-Y(22)}" rx="18" ${s}/>
+    <rect x="${X(38)}" y="${Y(34)}" width="${X(52)-X(38)}" height="${Y(66)-Y(34)}" rx="6" fill="var(--surface)" stroke="var(--body-edge)" stroke-width="2"/>
+    <text x="${X(45)}" y="${Y(52)}" text-anchor="middle" class="slot-label">kabin</text>`;
+}
+function tireSlot(p, layout) {
+  const w = layout === "reach_stacker" ? 56 : 70, h = layout === "reach_stacker" ? 34 : 50;
+  const cx = X(p.x), cy = Y(p.y), x = cx - w / 2, y = cy - h / 2;
+  const fill = h * Math.min(p.pct, 100) / 100;
+  const grooves = Array.from({ length: 7 }, (_, i) => `<line x1="${x + 6 + i * (w - 12) / 6}" y1="${y + 3}" x2="${x + 6 + i * (w - 12) / 6}" y2="${y + h - 3}" stroke="var(--rubber-groove)" stroke-width="2"/>`).join("");
+  const top = p.y < 50;
+  return `<g class="slot" tabindex="0" role="button" data-pos="${p.pos}" aria-pressed="${state.part === p.pos}"
+      aria-label="${p.label}, kalan diş yüzde ${Math.round(p.pct)}, ${BAND_TXT[p.band]}">
+    <rect class="halo" x="${x - 6}" y="${y - 6}" width="${w + 12}" height="${h + 12}" rx="12"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="var(--rubber)"/>
+    ${grooves}
+    <rect x="${x}" y="${y + h - fill}" width="${w}" height="${fill}" rx="8" fill="var(--${p.band})" opacity=".82"/>
+    <text x="${cx}" y="${top ? y - 10 : y + h + 20}" text-anchor="middle">
+      <tspan class="slot-label">${p.pos} </tspan><tspan class="slot-val" fill="var(--${p.band})">%${Math.round(p.pct)}</tspan>
+    </text>
+  </g>`;
+}
+function compSlot(p) {
+  const cx = X(p.x), cy = Y(p.y), r = 13;
+  const shape = p.cat === "hyd_pump" ? `<rect x="${cx - r}" y="${cy - r}" width="${2 * r}" height="${2 * r}" rx="4" fill="var(--${p.band})"/>`
+              : p.cat === "battery" ? `<rect x="${cx - r - 4}" y="${cy - r + 3}" width="${2 * r + 8}" height="${2 * r - 6}" rx="3" fill="var(--${p.band})"/>`
+              : `<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--${p.band})"/>`;
+  return `<g class="slot" tabindex="0" role="button" data-pos="${p.pos}" aria-pressed="${state.part === p.pos}"
+      aria-label="${p.label}, ömür yüzde ${Math.round(p.pct)}, ${BAND_TXT[p.band]}">
+    <circle class="halo" cx="${cx}" cy="${cy}" r="${r + 7}"/>
+    ${shape}
+    <circle cx="${cx}" cy="${cy}" r="4" fill="var(--surface)"/>
+  </g>`;
+}
+function renderSchematic() {
+  const m = MACHINES.find(x => x.code === state.machine);
+  const ps = parts.filter(p => p.machine === m.code && (state.filter === "all" || p.cat === "tire"));
+  document.getElementById("machine-title").textContent = `${m.code} · ${m.model}`;
+  document.getElementById("machine-sub").textContent = `${m.kind}, ${m.site}, ${nf.format(m.hours)} motor saati. Bir parçaya dokun, ikizini aç.`;
+  const svg = document.getElementById("schematic");
+  svg.innerHTML = `
+    <text x="${X(-4)}" y="18" class="slot-label">ön</text>
+    <text x="${X(96)}" y="18" class="slot-label" text-anchor="end">arka</text>
+    ${bodyShape(m.layout)}
+    ${ps.filter(p => p.cat === "tire").map(p => tireSlot(p, m.layout)).join("")}
+    ${ps.filter(p => p.cat !== "tire").map(compSlot).join("")}`;
+  svg.querySelectorAll(".slot").forEach(g => {
+    const pick = () => { state.part = g.dataset.pos; renderSchematic(); renderTwin(); };
+    g.addEventListener("click", pick);
+    g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+  });
+}
+
+// ---------- Parça ikizi ----------
+function wearChart(p) {
+  const W = 460, H = 170, pad = { l: 34, r: 14, t: 12, b: 26 };
+  const xMax = p.hours + (p.left || 0), yMax = p.otd;
+  const sx = v => pad.l + v / xMax * (W - pad.l - pad.r), sy = v => pad.t + (1 - v / yMax) * (H - pad.t - pad.b);
+  const pts = [[0, p.otd], [p.prevHours, p.prevVal], [p.hours, p.curVal]];
+  const path = pts.map((q, i) => `${i ? "L" : "M"}${sx(q[0]).toFixed(1)},${sy(q[1]).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diş derinliği geçmişi ve tahmini">
+    <line x1="${pad.l}" x2="${W - pad.r}" y1="${sy(p.scrap)}" y2="${sy(p.scrap)}" stroke="var(--critical)" stroke-dasharray="3 4"/>
+    <text x="${pad.l + 6}" y="${sy(p.scrap) + 14}">hurda sınırı ${p.scrap} mm</text>
+    <line x1="${pad.l}" x2="${pad.l}" y1="${pad.t}" y2="${H - pad.b}" stroke="var(--line)"/>
+    <line x1="${pad.l}" x2="${W - pad.r}" y1="${H - pad.b}" y2="${H - pad.b}" stroke="var(--line)"/>
+    <text x="${pad.l - 6}" y="${sy(p.otd) + 4}" text-anchor="end">${p.otd}</text>
+    <text x="${pad.l - 6}" y="${H - pad.b}" text-anchor="end">0</text>
+    <text x="${pad.l}" y="${H - 6}">0 saat</text>
+    <text x="${W - pad.r}" y="${H - 6}" text-anchor="end">${nf.format(Math.round(xMax))} saat</text>
+    <path d="${path}" fill="none" stroke="var(--ink)" stroke-width="2.5"/>
+    ${p.left ? `<line x1="${sx(p.hours)}" y1="${sy(p.curVal)}" x2="${sx(xMax)}" y2="${sy(p.scrap)}" stroke="var(--${p.band})" stroke-width="2.5" stroke-dasharray="6 5"/>` : ""}
+    ${pts.map(q => `<circle cx="${sx(q[0])}" cy="${sy(q[1])}" r="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>`).join("")}
+    <circle cx="${sx(p.hours)}" cy="${sy(p.curVal)}" r="6" fill="var(--${p.band})"/>
+  </svg>`;
+}
+function renderTwin() {
+  const el = document.getElementById("twin");
+  const ps = parts.filter(p => p.machine === state.machine);
+  const p = ps.find(x => x.pos === state.part);
+  if (!p) {
+    const worst = [...ps].filter(x => state.filter === "all" || x.cat === "tire").sort((a, b) => a.pct - b.pct)[0];
+    el.innerHTML = `<div class="panel-head"><div><h2>Parça ikizi</h2><p class="sub">Şemadan bir parça seç</p></div></div>
+      <p>Her lastik, silindir ve pompa burada kendi geçmişiyle yaşar: ne zaman alındı, hangi makinede kaç saat çalıştı, nasıl aşındı ve ne kadar ömrü kaldı.</p>
+      ${worst ? `<button class="btn btn-ghost" id="open-worst">En kritik parçayı aç: ${worst.pos}</button>` : ""}`;
+    const b = document.getElementById("open-worst");
+    if (b) b.onclick = () => { state.part = worst.pos; renderSchematic(); renderTwin(); };
+    return;
+  }
+  const cph = p.cost / Math.max(p.hours, 1);
+  const verdict = p.cat === "tire"
+    ? (p.left !== null ? `Bu hızla hurda sınırına yaklaşık <strong>${nf.format(p.left)} saat</strong> kaldı.` : "Aşınma hesaplamak için ikinci ölçüm gerekli.")
+    : `Beklenen ${nf.format(p.life)} saatlik ömrün <strong>%${nf.format(Math.round(100 - p.pct))}</strong> kadarı kullanıldı.`;
+  const events = [
+    ["Depoya alındı", "Eki 2025"],
+    [p.prevH ? `${state.machine} makinesine aktarıldı (önceden ${nf.format(p.prevH)} saat çalışmıştı)` : `${state.machine} ${p.pos} pozisyonuna takıldı`, `${nf.format(p.instAt)} motor saati`],
+    ...(p.prevVal != null ? [[`Ölçüm: ${nf1.format(p.prevVal)} ${p.unit || "mm"}`, "60 gün önce"], [`Ölçüm: ${nf1.format(p.curVal)} ${p.unit || "mm"}`, "Dün, inspeksiyon tamamlandı"]] : []),
+    ...(p.serial === "KB-450-0071" ? [["Tamir: keçe takımı değişti ($650)", "35 gün önce"]] : [])
+  ].reverse();
+  el.innerHTML = `
+    <span class="chip" style="--c: var(--${p.band})">${BAND_TXT[p.band]}</span>
+    <div class="title">${p.label}</div>
+    <div class="sub">${p.name} · seri ${p.serial} · ${CAT_TXT[p.cat]}</div>
+    <dl class="facts">
+      <div class="fact"><dt>${p.cat === "tire" ? "Diş derinliği" : "Kalan ömür"}</dt><dd>${p.cat === "tire" ? nf1.format(p.curVal) + " mm" : nf.format(p.left) + " sa"}</dd></div>
+      <div class="fact"><dt>Çalışma</dt><dd>${nf.format(p.hours)} sa</dd></div>
+      <div class="fact"><dt>Saat başı maliyet (bugüne kadar)</dt><dd>${usd(cph)}</dd></div>
+    </dl>
+    ${p.cat === "tire" ? `<div class="wear">${wearChart(p)}</div>`
+      : `<div class="life" style="--c: var(--${p.band})"><div class="bar"><i style="width:${100 - p.pct}%"></i></div></div>`}
+    <p class="verdict" style="--c: var(--${p.band})">${verdict}${p.cat !== "tire" && p.prevVal != null ? ` Son ölçüm ${nf1.format(p.curVal)} ${p.unit}.` : ""}</p>
+    <ol class="timeline">${events.map(e => `<li>${e[0]}<time>${e[1]}</time></li>`).join("")}</ol>
+    <div class="actions">
+      <button class="btn btn-primary" data-msg="Ölçüm formu: değer + zorunlu fotoğraflar, kalite kapılarından geçer.">Ölçüm ekle</button>
+      <button class="btn btn-ghost" data-msg="Sökme formu: sebep + sonraki durum (stok, tamir, kaplama, hurda). remove_part_item çağrılır.">Sökmeyi kaydet</button>
+    </div>`;
+  bindMsgs(el);
+}
+
+// ---------- Öncelikli işler ----------
+function renderTodo() {
+  const items = parts.filter(p => p.band !== "ok").sort((a, b) => (a.left ?? 1e9) - (b.left ?? 1e9)).slice(0, 5).map(p => ({
+    band: p.band,
+    what: `${p.machine} ${p.label.toLocaleLowerCase("tr-TR")}`,
+    why: p.cat === "tire"
+      ? `Diş %${Math.round(p.pct)}, bu aşınma hızıyla yaklaşık ${nf.format(p.left)} saat içinde değişim gerekecek.`
+      : `${p.pct <= 0 ? "Beklenen ömrünü aştı" : `Ömrün %${Math.round(100 - p.pct)} kadarı kullanıldı`}${p.prevVal != null ? `, çökme ${p.prevVal} → ${p.curVal} mm` : ""}.`,
+    act: p.cat === "tire" ? "Değişim planla" : "Bakım emri aç",
+    machine: p.machine, pos: p.pos
+  }));
+  items.splice(2, 0, { band: "watch", what: "29.5R25 stok seviyesi", why: "Depoda 1 adet var, kritik seviye 2. LD-07 için 2 değişim yaklaşıyor.", act: "Satınalma talebi" });
+  document.getElementById("todo").innerHTML = items.map((t, i) => `
+    <li><span class="sev" style="--c: var(--${t.band})"></span>
+      <div><div class="what">${t.what}</div><div class="why">${t.why}</div></div>
+      <button data-i="${i}">${t.act}</button></li>`).join("");
+  document.querySelectorAll("#todo button").forEach(b => b.onclick = () => {
+    const t = items[+b.dataset.i];
+    if (t.machine) { state.machine = t.machine; state.part = t.pos; state.filter = parts.find(p => p.machine === t.machine && p.pos === t.pos).cat === "tire" ? state.filter : "all"; renderAll(); document.getElementById("twin").scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+    else toast("Faz 2: stok modülünde satınalma talebi oluşturur.");
+  });
+}
+
+// ---------- Saat başı maliyet ----------
+function renderCph() {
+  const rows = MACHINES.map(m => {
+    const ts = parts.filter(p => p.machine === m.code && p.cat === "tire");
+    // Ömür sonu beklenen saat başı maliyet: maliyet ÷ (çalışılan + tahmini kalan saat)
+    const v = ts.reduce((s, p) => s + p.cost / (p.hours + (p.left || 0)), 0);
+    return { code: m.code, v };
+  });
+  const max = Math.max(...rows.map(r => r.v));
+  document.getElementById("cph").innerHTML = rows.map(r => `
+    <div class="cph-row"><b>${r.code}</b><span class="track"><i style="width:${r.v / max * 100}%"></i></span><span>${usd(r.v)}</span></div>`).join("");
+}
+
+// ---------- Ortak ----------
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2800);
+}
+function bindMsgs(root) { root.querySelectorAll("[data-msg]").forEach(b => b.onclick = () => toast(b.dataset.msg)); }
+document.querySelectorAll("[data-filter]").forEach(b => b.onclick = () => {
+  state.filter = b.dataset.filter;
+  document.querySelectorAll("[data-filter]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  const cur = parts.find(p => p.machine === state.machine && p.pos === state.part);
+  if (cur && state.filter === "tire" && cur.cat !== "tire") state.part = null;
+  renderSchematic(); renderTwin();
+});
+document.getElementById("theme").onclick = () => {
+  const r = document.documentElement;
+  const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  r.dataset.theme = dark ? "light" : "dark";
+};
+function renderAll() {
+  document.querySelectorAll("[data-filter]").forEach(x => x.setAttribute("aria-pressed", x.dataset.filter === state.filter));
+  renderFleet(); renderSchematic(); renderTwin(); renderTodo(); renderCph();
+}
+bindMsgs(document);
+state.part = "A2-L";
+renderAll();
+</script>
+</body>
+</html>

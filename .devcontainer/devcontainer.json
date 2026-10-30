@@ -1,0 +1,27 @@
+{
+  "name": "SpareTwin",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "shutdownAction": "stopCompose",
+  "postCreateCommand": "make setup",
+  "forwardPorts": [8000, 8080],
+  "portsAttributes": {
+    "8000": { "label": "SpareTwin API", "onAutoForward": "notify" },
+    "8080": { "label": "Dashboard prototipi", "onAutoForward": "openBrowser" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "bierner.markdown-mermaid"
+      ],
+      "settings": {
+        "python.testing.pytestEnabled": true,
+        "python.testing.cwd": "${workspaceFolder}/backend"
+      }
+    }
+  }
+}

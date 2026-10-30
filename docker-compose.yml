@@ -1,0 +1,41 @@
+# Geliştirme ortamı (Codespace veya kendi bilgisayarın).
+#   docker compose up -d db     → sadece veritabanı (API'yi uvicorn --reload ile çalıştırırken)
+#   docker compose up -d        → veritabanı + API (imaj olarak, canlıya en yakın hali)
+# Canlı ortam için deploy/docker-compose.prod.yml kullanılır.
+services:
+  db:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_USER: sparetwin
+      POSTGRES_PASSWORD: sparetwin
+      POSTGRES_DB: sparetwin
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/docker-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sparetwin -d sparetwin"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    profiles: ["full"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://sparetwin:sparetwin@db:5432/sparetwin
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  media:

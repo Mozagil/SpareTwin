@@ -1,0 +1,29 @@
+# Codespaces / Dev Container ortamı: iki container.
+#   app → kod burada çalışır (Python 3.12)
+#   db  → PostgreSQL 17
+# app, db ile aynı ağı paylaşır (network_mode); bu yüzden veritabanı
+# her yerde olduğu gibi localhost:5432 adresinden erişilir.
+# Docker-in-Docker gerekmez.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/python:1-3.12-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    network_mode: service:db
+    environment:
+      SPARETWIN_DEVCONTAINER: "1"
+
+  db:
+    image: postgres:17.6-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sparetwin
+      POSTGRES_PASSWORD: sparetwin
+      POSTGRES_DB: sparetwin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../db/docker-init:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  pgdata:
