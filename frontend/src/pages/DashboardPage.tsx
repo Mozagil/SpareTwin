@@ -22,7 +22,13 @@ function FleetStrip({ assets, selected, onSelect }: {
         const ok = Math.max(a.installed_parts - a.critical_parts - a.watch_parts, 0);
         return (
           <button key={a.id} className="unit" aria-pressed={a.id === selected} onClick={() => onSelect(a.id)}>
-            <div className="row"><span className="code">{a.code}</span><span className="meta">{num(a.meter_hours)} saat</span></div>
+            <div className="row">
+              <span className="unit-id">
+                {a.image && <img className="unit-thumb" src={a.image.url} alt="" loading="lazy" />}
+                <span className="code">{a.code}</span>
+              </span>
+              <span className="meta">{num(a.meter_hours)} saat</span>
+            </div>
             <div className="meta">{[a.manufacturer, a.model].filter(Boolean).join(" ")}{a.site_name ? ` · ${a.site_name}` : ""}</div>
             <div className="pips" aria-hidden="true">
               {Array.from({ length: a.critical_parts }, (_, i) => <i key={`c${i}`} className="pip" style={{ background: "var(--critical)" }} />)}

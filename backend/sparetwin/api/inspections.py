@@ -12,6 +12,7 @@ from uuid import UUID
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
+from ..images import ImageError, process_image
 from ..storage import ALLOWED_MIME, sniff_mime
 from .deps import AppSettings, AppStorage, TenantCtx
 
@@ -128,6 +129,10 @@ def upload_photo(
     mime = sniff_mime(data[:16])
     if mime not in ALLOWED_MIME:
         raise HTTPException(415, "Desteklenmeyen dosya türü")
+    try:
+        data, mime = process_image(data, mime)  # yön düzeltme, küçültme, GPS/meta veri silme
+    except ImageError as e:
+        raise HTTPException(422, str(e))
 
     key = f"{ctx.tenant_id}/inspection/{inspection_id}/{uuid.uuid4()}{ALLOWED_MIME[mime]}"
     with ctx.tx() as conn:

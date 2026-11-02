@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import {
   EVENT_LABEL, NEXT_STATUS, REMOVE_REASONS, STATUS_LABEL, categoryLabel, dateTime, num, num1, pct, reasonLabel, usd,
 } from "../lib/format";
+import { ImageBox, PhotoStrip } from "./Images";
 import { WearChart } from "./WearChart";
 import { BandChip, ErrorNote, Field, Loading, Modal } from "./ui";
 
@@ -171,6 +172,9 @@ export function PartTwin({ partId, compact = false }: { partId: string; compact?
 
   return (
     <div className="twin">
+      <ImageBox image={p.image} uploadPath={`/catalog/parts/${p.part_id}/image`}
+                alt={p.part_name} size={compact ? "sm" : "md"}
+                note={p.image ? `Katalog görseli · ${p.part_name}` : undefined} />
       <div className="twin-head">
         <BandChip band={p.band} />
         <span className="chip chip-plain">{STATUS_LABEL[p.status]}</span>
@@ -207,6 +211,8 @@ export function PartTwin({ partId, compact = false }: { partId: string; compact?
         </p>
       )}
       {verdict && <p className="verdict" style={{ ["--c" as string]: `var(--${p.band})` }}>{verdict}</p>}
+
+      <PhotoStrip photos={p.photos} title={title} />
 
       {!compact && Object.keys(p.latest_measurements ?? {}).length > 0 && (
         <p className="muted small">

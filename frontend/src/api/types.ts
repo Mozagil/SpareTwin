@@ -29,6 +29,20 @@ export interface TokenOut {
   user: Me;
 }
 
+/** Kısa ömürlü imzalı link (birkaç dakika geçerli; ekran tazelenince yenisi gelir). */
+export interface Img {
+  id: string | null;
+  url: string;
+  source?: "asset" | "model";
+}
+
+export interface Photo extends Img {
+  angle: string | null;
+  created_at: string;
+  inspection_id: string | null;
+  asset_hours: number | null;
+}
+
 export interface AssetSummary {
   id: string;
   code: string;
@@ -45,6 +59,7 @@ export interface AssetSummary {
   watch_parts: number;
   worst_condition_pct: number | null;
   last_inspection_at: string | null;
+  image: Img | null;
 }
 
 export interface Position {
@@ -70,6 +85,7 @@ export interface AssetDetail extends AssetSummary {
   qr_code: string | null;
   notes: string | null;
   template_id: string | null;
+  model_id: string | null;
   positions: Position[];
 }
 
@@ -137,6 +153,8 @@ export interface PartDetail {
   projected_hours_left: number | null;
   tire: TireInfo | null;
   rim: RimInfo | null;
+  image: Img | null;
+  photos: Photo[];
 }
 
 export interface PartEvent {
@@ -193,6 +211,7 @@ export interface AssetModel {
   template_id: string | null;
   template_name: string | null;
   layout: Layout | null;
+  image: Img | null;
 }
 
 export interface CatalogPart {
@@ -209,6 +228,7 @@ export interface CatalogPart {
   tire_construction: string | null;
   in_stock: number;
   installed: number;
+  image: Img | null;
 }
 
 export interface Category {

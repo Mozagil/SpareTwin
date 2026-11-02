@@ -23,6 +23,7 @@ Tarayıcı yalnızca 5173 ile konuşur. `/api` ile başlayan istekleri Vite, Cod
 | `src/components/MachineSchematic.tsx` | Makine üstten görünüş şeması (pozisyon x/y şablondan) |
 | `src/components/PartActions.tsx` | Parça ikizi paneli; takma, sökme, olay kaydı pencereleri |
 | `src/components/WearChart.tsx` | Diş derinliği – parça saati grafiği ve tahmin |
+| `src/components/Images.tsx` | Görsel kutusu (yükle/değiştir/kaldır), saha fotoğrafı şeridi, büyütme penceresi |
 | `src/components/ui.tsx` | Panel, Modal, Field, BandChip, ErrorNote… |
 | `src/pages/` | Sayfalar (bkz. `05-dashboard-ux.md` ekran listesi) |
 | `src/lib/format.ts` | Türkçe sayı/tarih biçimleri, durum ve sebep etiketleri |
@@ -58,5 +59,6 @@ Tarayıcı yalnızca 5173 ile konuşur. `/api` ile başlayan istekleri Vite, Cod
 
 - `src/api/client.test.ts`: token, yenileme, eşzamanlı 401, hata biçimi, firma başlığı.
 - `src/components/MachineSchematic.test.tsx`: durum etiketleri, boş ve ölçümsüz pozisyon, klavye ile seçim.
+- `src/components/Images.test.tsx`: rol bazlı "Görsel ekle", model görselinde kaldırma yok, büyütme penceresinde klavye ile gezinme.
 
 Uçtan uca senaryo (giriş → dashboard → QR arama → lastik değişimi → kayıt → etiket → rol kısıtı → mobil) bu sürüm teslim edilmeden önce gerçek tarayıcıda çalıştırıldı.

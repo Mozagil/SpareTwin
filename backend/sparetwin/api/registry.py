@@ -12,7 +12,8 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from .deps import TenantCtx
+from .deps import AppStorage, TenantCtx
+from .images import image_out
 
 router = APIRouter(tags=["Kayıt"])
 
@@ -61,17 +62,22 @@ class AssetModelIn(BaseModel):
 
 
 @router.get("/catalog/asset-models", summary="Makine modelleri")
-def list_asset_models(ctx: TenantCtx):
+def list_asset_models(ctx: TenantCtx, storage: AppStorage):
     with ctx.tx() as conn:
-        return conn.execute(
+        rows = conn.execute(
             """select am.id, am.manufacturer, am.model, am.category, am.template_id,
-                      pt.name as template_name, pt.layout
+                      pt.name as template_name, pt.layout, img.storage_key as img_key, img.mime_type as img_mime
                  from public.asset_models am
                  left join public.position_templates pt on pt.id = am.template_id
-                where am.tenant_id is null or am.tenant_id = %s
+                 left join public.attachments img on img.tenant_id = %(t)s and img.entity_type = 'asset_model'
+                       and img.entity_id = am.id and img.kind = 'image'
+                where am.tenant_id is null or am.tenant_id = %(t)s
                 order by am.manufacturer, am.model""",
-            [ctx.tenant_id],
+            {"t": ctx.tenant_id},
         ).fetchall()
+    for r in rows:
+        r["image"] = image_out(storage, r.pop("img_key"), r.pop("img_mime"))
+    return rows
 
 
 @router.post("/catalog/asset-models", status_code=201, summary="Makine modeli ekle")
@@ -127,24 +133,30 @@ class CatalogPartIn(BaseModel):
 
 
 @router.get("/catalog/parts", summary="Parça kataloğu (stok adediyle)")
-def list_catalog_parts(ctx: TenantCtx, category: str | None = None):
+def list_catalog_parts(ctx: TenantCtx, storage: AppStorage, category: str | None = None):
     with ctx.tx() as conn:
-        return conn.execute(
+        rows = conn.execute(
             """select p.id, p.name, p.manufacturer, p.part_no, p.list_cost, p.min_stock, p.specs,
                       pc.code as category_code, pc.name as category_name,
                       ts.size as tire_size, ts.construction as tire_construction,
                       (select count(*) from public.part_items pi
                         where pi.part_id = p.id and pi.tenant_id = %(t)s and pi.status = 'in_stock') as in_stock,
                       (select count(*) from public.part_items pi
-                        where pi.part_id = p.id and pi.tenant_id = %(t)s and pi.status = 'installed') as installed
+                        where pi.part_id = p.id and pi.tenant_id = %(t)s and pi.status = 'installed') as installed,
+                      img.storage_key as img_key, img.mime_type as img_mime
                  from public.parts p
                  join public.part_categories pc on pc.id = p.category_id
                  left join public.tire_specs ts on ts.part_id = p.id
+                 left join public.attachments img on img.tenant_id = %(t)s and img.entity_type = 'part'
+                       and img.entity_id = p.id and img.kind = 'image'
                 where (p.tenant_id = %(t)s or p.tenant_id is null)
                   and (%(c)s::text is null or pc.code = %(c)s)
                 order by pc.name, p.name""",
             {"t": ctx.tenant_id, "c": category},
         ).fetchall()
+    for r in rows:
+        r["image"] = image_out(storage, r.pop("img_key"), r.pop("img_mime"))
+    return rows
 
 
 @router.post("/catalog/parts", status_code=201, summary="Katalog kalemi ekle (lastikse lastik bilgisi zorunlu)")

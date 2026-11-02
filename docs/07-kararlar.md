@@ -134,3 +134,17 @@ Her önemli karar burada: ne seçildi, neden, neyi göze aldık. Bir karar deği
 **Göze alınan:** Ekran değişiklikleri görsel editörle değil kodla yapılır.
 
 **Güvenlik notları:** Erişim token'ı yalnızca bellekte; yenileme token'ı tarayıcı deposunda (Faz 3'te httpOnly çerezli akış değerlendirilecek). Arayüz API'ye aynı adresten bağlandığı için CORS kapalı.
+
+---
+
+## K-011 · Görseller sunucuda işlenir; konum bilgisi saklanmaz
+
+**Tarih:** 2 Kasım 2026 · **Durum:** Kabul
+
+**Karar:** Yüklenen her JPEG/PNG/WEBP sunucuda yeniden kaydedilir: telefonun yön bilgisine göre döndürülür, uzun kenarı 1600 piksele küçültülür ve bütün meta veri (GPS konumu, cihaz bilgisi) silinir. Katalog kalemi, makine modeli ve makine için firma başına tek görsel tutulur; ortak kütüphanedeki kalemlere her firma kendi görselini koyar.
+
+**Neden:** Sahada çekilen fotoğraflar çalışanın ve sahanın konumunu içerebilir; bunu saklamak gereksiz bir KVKK riski. Küçültme, sahadaki zayıf mobil bağlantıda sayfaların hızlı açılmasını sağlar.
+
+**Göze alınan:** Orijinal yüksek çözünürlüklü dosya saklanmaz. Hasar incelemesi için daha yüksek çözünürlük gerekirse sınır ayarlanabilir. HEIC (iPhone) dosyaları şimdilik işlenmeden saklanır; Faz 1'deki mobil formda tarayıcı fotoğrafı yüklemeden önce JPEG'e çevirecek.
+
+**Telif notu:** Üretici görselleri otomatik olarak internetten çekilmez; firmalar kendi çektikleri ya da kullanım izni olan görselleri yükler.

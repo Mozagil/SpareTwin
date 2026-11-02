@@ -5,8 +5,19 @@ from conftest import asset_id
 from sparetwin.config import Settings
 from sparetwin.storage import S3Storage, sniff_mime
 
-JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 200
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 200
+import io
+
+from PIL import Image
+
+
+def _img(fmt: str) -> bytes:
+    b = io.BytesIO()
+    Image.new("RGB", (64, 48), (120, 120, 120)).save(b, format=fmt)
+    return b.getvalue()
+
+
+JPEG = _img("JPEG")  # gerçek, açılabilir görseller (yüklemede işlendikleri için)
+PNG = _img("PNG")
 
 
 def _fl14_tires(client, h):
@@ -106,8 +117,8 @@ def test_fotograf_linki_ve_baska_firma_erisimi(client, tech, other):
     path = link["url"].replace("http://testserver", "")
     f = client.get(path)  # oturum başlığı olmadan, <img src> gibi
     assert f.status_code == 200
-    assert f.content == JPEG
     assert f.headers["content-type"] == "image/jpeg"
+    assert Image.open(io.BytesIO(f.content)).size == (64, 48)  # işlenmiş ama aynı görsel
 
     assert client.get("/media/file/sahte-token").status_code == 403
     assert client.get(f"/media/{photo['id']}/url", headers=other).status_code == 404

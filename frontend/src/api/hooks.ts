@@ -124,6 +124,23 @@ export function useCreate<TBody, TOut = unknown>(path: string, invalidate: strin
   });
 }
 
+/** Görsel yükle / kaldır. path örn. "/catalog/parts/{id}/image" */
+export function useImage(path: string) {
+  const qc = useQueryClient();
+  const refresh = () =>
+    Promise.all(["assets", "asset", "part", "catalog-parts", "asset-models"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  const upload = useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return api(path, { method: "PUT", form });
+    },
+    onSuccess: refresh,
+  });
+  const remove = useMutation({ mutationFn: () => api(path, { method: "DELETE" }), onSuccess: refresh });
+  return { upload, remove };
+}
+
 export function useLabels() {
   return useMutation({
     mutationFn: (body: { asset_ids: string[]; part_ids: string[]; skip: number }) =>

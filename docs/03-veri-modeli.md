@@ -51,7 +51,7 @@ erDiagram
 | `part_events` | Yaşam döngüsü defteri | Append-only. `part_hours` olay anındaki parça saati |
 | `inspections` | Saha kontrolü | `qc_flags` kalite kapısı sonuçları |
 | `measurements` | Ölçüm | Esnek: `metric` + `value` + `unit` + `source` |
-| `attachments` | Fotoğraf/doküman kaydı | Dosya diskte veya S3'te; inspeksiyonda parça+açı başına bir fotoğraf |
+| `attachments` | Görsel, fotoğraf, doküman | `kind = 'image'`: katalog kalemi / makine modeli / makine görseli (firma başına bir tane). `kind = 'photo'`: inspeksiyon fotoğrafı, parça+açı başına bir tane. Dosya diskte veya S3'te |
 | `tire_specs`, `rim_specs` | TireIQ uzantıları | Orijinal diş derinliği, hurda sınırı, jant NDT periyodu |
 
 ## Parça saati nasıl hesaplanır?

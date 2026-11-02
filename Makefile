@@ -33,7 +33,7 @@ reset: db ## Şemayı sıfırla + demo veri yükle
 	$(PY) -m sparetwin.cli seed-demo
 
 api: db ## API'yi otomatik yeniden yüklemeyle çalıştır (http://localhost:8000/docs)
-	uvicorn sparetwin.main:create_app --factory --reload --host 0.0.0.0 --port 8000 --reload-dir backend/sparetwin
+	$(PY) -m uvicorn sparetwin.main:create_app --factory --reload --host 0.0.0.0 --port 8000 --reload-dir backend/sparetwin
 
 web: check ## Frontend geliştirme sunucusu (http://localhost:5173)
 	cd frontend && npm run dev

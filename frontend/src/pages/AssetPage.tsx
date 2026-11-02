@@ -1,10 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router";
 import { useAsset, useMeter } from "../api/hooks";
 import type { Position } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { MachineSchematic } from "../components/MachineSchematic";
 import { InstallModal, PartTwin, RemoveModal } from "../components/PartActions";
+import { ImageBox } from "../components/Images";
 import { BandChip, ErrorNote, Loading, Modal, Field, Panel } from "../components/ui";
 import { LAYOUT_LABEL, categoryLabel, date, num, pct } from "../lib/format";
 
@@ -37,6 +38,17 @@ export function AssetPage() {
   const [selected, setSelected] = useState<Position | null>(null);
   const [modal, setModal] = useState<{ kind: "install" | "remove" | "meter"; pos?: Position } | null>(null);
 
+  // Başka bir makineye geçilince seçim sıfırlanır
+  useEffect(() => setSelected(null), [id]);
+  // Açılışta en kötü durumdaki dolu pozisyonu seç (dashboard ile aynı davranış)
+  useEffect(() => {
+    if (!asset.data || selected) return;
+    const worst = asset.data.positions
+      .filter((p) => p.part_item_id)
+      .sort((x, y) => (x.condition_pct ?? 101) - (y.condition_pct ?? 101))[0];
+    if (worst) setSelected(worst);
+  }, [asset.data, selected]);
+
   if (asset.isLoading) return <Loading />;
   if (asset.error) return <ErrorNote error={asset.error} />;
   const a = asset.data!;
@@ -45,13 +57,17 @@ export function AssetPage() {
   return (
     <>
       <div className="page-head">
-        <div>
+        <div className="asset-head">
+          <ImageBox image={a.image} uploadPath={`/assets/${a.id}/image`} alt={`${a.code} ${a.manufacturer ?? ""} ${a.model ?? ""}`}
+                    size="sm" note={a.image?.source === "model" ? "Model görseli" : undefined} />
+          <div>
           <p className="crumbs"><Link to="/">Filo</Link> / {a.code}</p>
           <h1>{a.code} · {a.manufacturer} {a.model}</h1>
           <p className="sub">
             {LAYOUT_LABEL[a.layout ?? "generic"]} · {a.site_name ?? "saha atanmamış"} · seri {a.serial_no ?? "–"}
             {a.year ? ` · ${a.year}` : ""} · QR {a.qr_code}
           </p>
+          </div>
         </div>
         <div className="head-actions">
           <div className="meter"><span>Motor saati</span><strong>{num(a.meter_hours)}</strong></div>

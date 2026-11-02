@@ -6,7 +6,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
 
-from .deps import TenantCtx
+from .deps import AppStorage, TenantCtx
+from .images import entity_image, image_out, part_photos
 
 router = APIRouter(tags=["Filo ve parçalar"])
 
@@ -23,23 +24,33 @@ def list_sites(ctx: TenantCtx):
 
 
 @router.get("/assets", summary="Filo özeti (makine bazlı sağlık)")
-def list_assets(ctx: TenantCtx, site_id: UUID | None = None):
+def list_assets(ctx: TenantCtx, storage: AppStorage, site_id: UUID | None = None):
     with ctx.tx() as conn:
-        return conn.execute(
-            """select h.*, s.name as site_name
+        rows = conn.execute(
+            """select h.*, s.name as site_name,
+                      coalesce(ai.storage_key, mi.storage_key) as img_key,
+                      coalesce(ai.mime_type, mi.mime_type) as img_mime
                  from public.v_asset_health h
+                 join public.assets a on a.id = h.id
                  left join public.sites s on s.id = h.site_id
+                 left join public.attachments ai on ai.tenant_id = h.tenant_id and ai.entity_type = 'asset'
+                       and ai.entity_id = h.id and ai.kind = 'image'
+                 left join public.attachments mi on mi.tenant_id = h.tenant_id and mi.entity_type = 'asset_model'
+                       and mi.entity_id = a.model_id and mi.kind = 'image'
                 where h.tenant_id = %s and (%s::uuid is null or h.site_id = %s::uuid)
                 order by h.critical_parts desc, h.watch_parts desc, h.code""",
             [ctx.tenant_id, site_id, site_id],
         ).fetchall()
+    for r in rows:
+        r["image"] = image_out(storage, r.pop("img_key"), r.pop("img_mime"))
+    return rows
 
 
 @router.get("/assets/{asset_id}", summary="Makine detayı ve şeması")
-def get_asset(asset_id: UUID, ctx: TenantCtx):
+def get_asset(asset_id: UUID, ctx: TenantCtx, storage: AppStorage):
     with ctx.tx() as conn:
         asset = conn.execute(
-            """select h.*, a.serial_no, a.year, a.meter_km, a.qr_code, a.notes, am.template_id,
+            """select h.*, a.serial_no, a.year, a.meter_km, a.qr_code, a.notes, am.template_id, a.model_id,
                       s.name as site_name
                  from public.v_asset_health h
                  join public.assets a on a.id = h.id
@@ -50,6 +61,10 @@ def get_asset(asset_id: UUID, ctx: TenantCtx):
         ).fetchone()
         if not asset:
             raise HTTPException(404, NOT_FOUND)
+        own = entity_image(conn, storage, ctx.tenant_id, "asset", asset_id)
+        model_img = entity_image(conn, storage, ctx.tenant_id, "asset_model", asset["model_id"]) if asset["model_id"] else None
+        asset["image"] = ({**own, "source": "asset"} if own
+                          else {**model_img, "source": "model"} if model_img else None)
         # Şema: her pozisyon ve üzerindeki parça (boş pozisyon da döner)
         asset["positions"] = conn.execute(
             """select tp.code, tp.label, tp.category_code, tp.axle, tp.x, tp.y,
@@ -97,7 +112,7 @@ def list_parts(
 
 
 @router.get("/parts/{part_id}", summary="Parça ikizi: durum, lastik/jant bilgisi")
-def get_part(part_id: UUID, ctx: TenantCtx):
+def get_part(part_id: UUID, ctx: TenantCtx, storage: AppStorage):
     with ctx.tx() as conn:
         part = conn.execute(
             """select l.*, ph.condition_pct, ph.band, ph.projected_hours_left
@@ -115,6 +130,8 @@ def get_part(part_id: UUID, ctx: TenantCtx):
                  from public.v_tire_health where id = %s""",
             [part_id],
         ).fetchone()
+        part["image"] = entity_image(conn, storage, ctx.tenant_id, "part", part["part_id"])
+        part["photos"] = part_photos(conn, storage, ctx.tenant_id, part_id)
         part["rim"] = conn.execute(
             """select ndt_interval_hours, last_ndt_hours, hours_since_ndt, compliance
                  from public.v_rim_compliance where id = %s""",

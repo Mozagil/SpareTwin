@@ -1,6 +1,6 @@
 """SpareTwin API.
 
-Çalıştırma:  uvicorn sparetwin.main:create_app --factory --reload
+Çalıştırma:  make api   (veya: python -m uvicorn sparetwin.main:create_app --factory --reload)
 Dokümantasyon: /docs (Swagger), /redoc
 """
 
@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import __version__
-from .api import auth, fleet, inspections, labels, lifecycle, media, registry
+from .api import auth, fleet, images, inspections, labels, lifecycle, media, registry
 from .config import Settings, get_settings
 from .db import close_pool, http_status_for, init_pool, owner_tx, user_message_for
 from .migrate import run as run_migrations
@@ -79,7 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             conn.execute("select 1")
         return {"status": "ok", "version": __version__, "mode": settings.deployment_mode}
 
-    for r in (auth.router, fleet.router, registry.router, lifecycle.router, inspections.router,
+    for r in (auth.router, fleet.router, registry.router, images.router, lifecycle.router, inspections.router,
               media.router, labels.router):
         app.include_router(r)
     return app
