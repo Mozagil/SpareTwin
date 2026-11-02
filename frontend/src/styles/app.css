@@ -289,6 +289,18 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); out
   border-radius: 10px; cursor: pointer; justify-self: center; }
 .lightbox-nav.prev { grid-column: 1; } .lightbox-nav.next { grid-column: 3; }
 
+/* ---------- Excel içe aktarma ---------- */
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+.steps li > div { margin-top: 6px; }
+.import-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.inline-check { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; }
+.import-table td { vertical-align: top; }
+.import-table tbody tr { cursor: default; }
+.import-table tr.st-error { background: color-mix(in srgb, var(--critical) 6%, transparent); }
+.import-table .msgs { font-size: 13px; min-width: 260px; }
+.rowicon { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-weight: 700; font-size: 13px; color: #fff; }
+.rowicon.ok { background: var(--ok); } .rowicon.warning { background: var(--watch); } .rowicon.error { background: var(--critical); }
+
 /* ---------- Saha kontrolü (mobil öncelikli) ---------- */
 .insp { max-width: 680px; margin: 0 auto; }
 .btn-xl { width: 100%; padding: 15px 18px; font-size: 17px; border-radius: 14px; }

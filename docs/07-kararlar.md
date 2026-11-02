@@ -148,3 +148,17 @@ Her önemli karar burada: ne seçildi, neden, neyi göze aldık. Bir karar deği
 **Göze alınan:** Orijinal yüksek çözünürlüklü dosya saklanmaz. Hasar incelemesi için daha yüksek çözünürlük gerekirse sınır ayarlanabilir. HEIC (iPhone) dosyaları şimdilik işlenmeden saklanır; Faz 1'deki mobil formda tarayıcı fotoğrafı yüklemeden önce JPEG'e çevirecek.
 
 **Telif notu:** Üretici görselleri otomatik olarak internetten çekilmez; firmalar kendi çektikleri ya da kullanım izni olan görselleri yükler.
+
+---
+
+## K-012 · Toplu içe aktarma: önce önizleme, sonra ya hepsi ya hiçbiri
+
+**Tarih:** 2 Kasım 2026 · **Durum:** Kabul
+
+**Karar:** Excel/CSV yüklenince önce her satır doğrulanır ve sonuç gösterilir; hiçbir şey yazılmaz. Onaylanınca aynı doğrulama tek bir veritabanı işlemi içinde tekrarlanır; tek satırda bile hata varsa hiçbir şey kaydedilmez. Lastik takma, normal arayüzdeki ile aynı veritabanı fonksiyonundan (`install_part_item`) geçer.
+
+**Neden:** Yarım kalan bir içe aktarma (300 satırın 180'i kaydedilmiş) düzeltmesi en zor veri karmaşasıdır. Kullanıcı hatayı Excel'de düzeltip aynı dosyayı tekrar yükler. Kuralların tek yerde olması, içe aktarılan verinin elle girilenle aynı kurallara uymasını sağlar.
+
+**Dayanıklılık:** Sütun başlıkları esnek eşlenir ("Seri no", "Seri numarası", "Serial"), Türkçe ondalık ("12,5") ve tarih ("15.10.2026") okunur, Türkçe Windows Excel'in noktalı virgüllü CSV'si kabul edilir. Excel dosyaları `defusedxml` ile okunur (XML tabanlı saldırılara karşı).
+
+**Sınırlar:** Tek seferde 2.000 satır, 5 MB. Şimdilik yalnızca takılı lastikler; stoktaki lastikler ve diğer parça tipleri sonraki adımlarda.

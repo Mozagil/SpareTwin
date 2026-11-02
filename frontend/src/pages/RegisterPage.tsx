@@ -4,6 +4,7 @@ import { useAssetModels, useCatalogParts, useCreate, useSites, useTemplates } fr
 import type { Role } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { ErrorNote, Field, Panel } from "../components/ui";
+import { ImportPanel } from "./ImportPanel";
 import { CATEGORY_LABEL, LAYOUT_LABEL } from "../lib/format";
 
 const nOrNull = (v: string) => (v.trim() === "" ? null : Number(v));
@@ -285,6 +286,7 @@ const TABS: { key: string; label: string; min: Role; el: () => ReactElement; hin
   { key: "katalog", label: "Katalog kalemi", min: "manager", el: CatalogForm, hint: "Lastik ebadı, silindir modeli gibi parça tipleri." },
   { key: "model", label: "Makine modeli", min: "manager", el: ModelForm, hint: "Üretici + model ve pozisyon şablonu." },
   { key: "saha", label: "Saha", min: "manager", el: SiteForm, hint: "Maden, liman, şantiye veya depo." },
+  { key: "excel", label: "Excel'den içe aktar", min: "manager", el: ImportPanel, hint: "Mevcut lastik listenizi tek seferde sisteme alın." },
 ];
 
 export function RegisterPage() {
@@ -302,7 +304,7 @@ export function RegisterPage() {
           <button key={t.key} role="tab" aria-selected={t.key === active.key} onClick={() => setParams({ sekme: t.key })}>{t.label}</button>
         ))}
       </div>
-      <Panel className="narrow" title={active.label} sub={active.hint}>
+      <Panel className={active.key === "excel" ? "" : "narrow"} title={active.label} sub={active.hint}>
         <Form key={active.key} />
       </Panel>
     </>

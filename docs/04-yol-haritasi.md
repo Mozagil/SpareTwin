@@ -73,7 +73,7 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 | Jant NDT uyumluluk takibi | `v_rim_compliance` |
 | Doğrusal aşınma ve kalan saat tahmini | `v_tire_health` |
 | Saat başı maliyet | Bugüne kadar ve ömür sonu beklenen |
-| Toplu içe aktarma (Excel/CSV) | Pilotun mevcut envanteri için |
+| ✅ **Toplu içe aktarma (Excel/CSV)** | Şablon indirme, esnek sütun başlıkları, Türkçe sayı/tarih, önizleme (satır satır hata ve uyarı), ya hepsi ya hiçbiri, yeni makine ve katalog kalemi oluşturma, yeni lastiklerin etiketlerini yazdırma |
 | PDF durum raporu | API uç noktası. İçerik TireIQ sunumundaki rapor şablonu |
 | Basit bildirim | Kritik banda düşen parça, geciken NDT için e-posta |
 | Sökme sebep kodları kütüphanesi | Aşınma, kesik, darbe, ayrışma, basınç kaybı... |

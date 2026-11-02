@@ -1,6 +1,6 @@
 [project]
 name = "sparetwin"
-version = "0.6.2"
+version = "0.7.0"
 description = "SpareTwin API — dijital parça ikizi platformu"
 requires-python = ">=3.12,<3.14"
 dependencies = [
@@ -16,6 +16,8 @@ dependencies = [
   "boto3==1.37.0",
   "segno==1.6.1",
   "pillow==11.1.0",
+  "openpyxl==3.1.5",
+  "defusedxml==0.7.1",
 ]
 
 [project.optional-dependencies]

@@ -18,7 +18,7 @@ Makine imalatçıları, üretim fabrikaları ve iş makinesi filoları için **d
 |---|---|
 | `frontend/` | React uygulaması: giriş, filo dashboard'u, makine ve parça sayfaları, kayıt, etiketler |
 | `backend/sparetwin/` | FastAPI: kimlik, kayıt, filo, yaşam döngüsü, inspeksiyon, dosyalar, QR etiket |
-| `backend/tests/` | 58 test: kimlik, firma izolasyonu, kayıt, iş kuralları, kontrol formu, görseller ve gizlilik, etiket, S3, şema sıfırlama |
+| `backend/tests/` | 66 test: kimlik, firma izolasyonu, kayıt, Excel içe aktarma, iş kuralları, kontrol formu, görseller ve gizlilik, etiket, S3, şema sıfırlama |
 | `db/migrations/` | Şema, RLS, iş kuralları, TireIQ modülü, kimlik fonksiyonları |
 | `db/seed/demo.sql` | Demo firma: 4 makine, 29 takılı parça, ölçüm geçmişi |
 | `deploy/` | Canlı ortam paketi (şimdilik kullanılmıyor) |
@@ -32,7 +32,7 @@ Codespace iki container ile açılır: Python 3.12 + Node 22 çalışma ortamı 
 ```bash
 make reset   # şemayı kur + demo veri
 make dev     # API + uygulama birlikte → Ports sekmesinde 5173'ü aç
-make test    # 58 backend + 22 frontend testi
+make test    # 66 backend + 22 frontend testi
 ```
 
 Demo giriş bilgileri (yalnızca geliştirme):
@@ -79,4 +79,4 @@ Bir dosyanın silinmesi gerekiyorsa zip'in yanında not olarak belirtilir. `.dev
 
 ## Şu anki durum
 
-Faz 0 tamamlandı. Faz 1 (TireIQ MVP) sürüyor: görseller ve mobil kontrol formu hazır; sırada Excel ile toplu içe aktarma ve PDF rapor. Ayrıntı: `docs/04-yol-haritasi.md`.
+Faz 0 tamamlandı. Faz 1 (TireIQ MVP) sürüyor: görseller, mobil kontrol formu ve Excel ile toplu içe aktarma hazır; sırada PDF durum raporu. Ayrıntı: `docs/04-yol-haritasi.md`.

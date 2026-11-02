@@ -181,6 +181,27 @@ export async function api<T>(path: string, opts: RequestOptions = {}, retried = 
   return (await res.json()) as T;
 }
 
+/** Dosya indirme (ör. Excel şablonu): oturumla ister, tarayıcıya kaydettirir. */
+export async function download(path: string, fallbackName: string): Promise<void> {
+  if (!accessToken && session.refreshToken) await refreshSession();
+  const headers: Record<string, string> = {};
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (session.tenantId) headers["X-Tenant-Id"] = session.tenantId;
+  let res = await send(`${API_BASE}${path}`, { headers });
+  if (res.status === 401 && (await refreshSession())) {
+    headers.Authorization = `Bearer ${accessToken}`;
+    res = await send(`${API_BASE}${path}`, { headers });
+  }
+  if (!res.ok) throw await parseError(res);
+  const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 /** Testler için: modül durumunu sıfırlar. */
 export function __resetForTests() {
   accessToken = null;
