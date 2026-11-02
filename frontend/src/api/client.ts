@@ -57,6 +57,8 @@ function setTokens(t: TokenOut | null) {
   listeners.forEach((l) => l(t?.user ?? null));
 }
 
+export const SERVER_DOWN = "Sunucuya ulaşılamıyor. API çalışıyor mu? (Codespace'te: make dev)";
+
 async function parseError(res: Response): Promise<ApiError> {
   let detail = `İstek başarısız (${res.status})`;
   let fields: ApiError["fields"] = [];
@@ -65,13 +67,24 @@ async function parseError(res: Response): Promise<ApiError> {
     if (typeof body?.detail === "string") detail = body.detail;
     if (Array.isArray(body?.fields)) fields = body.fields;
   } catch {
-    /* gövde JSON değil */
+    // Gövde JSON değil: API'miz her hatayı JSON döndürür. 5xx + JSON olmayan gövde,
+    // arada bir sunucunun (Vite/Caddy) API'ye ulaşamadığı anlamına gelir.
+    if (res.status >= 500) detail = SERVER_DOWN;
   }
   return new ApiError(res.status, detail, fields);
 }
 
+/** fetch ağ hatasında (sunucu hiç yok) TypeError fırlatır; anlaşılır hataya çevir. */
+async function send(input: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw new ApiError(0, SERVER_DOWN);
+  }
+}
+
 export async function login(email: string, password: string): Promise<Me> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
+  const res = await send(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -153,7 +166,7 @@ export async function api<T>(path: string, opts: RequestOptions = {}, retried = 
       ).toString()
     : "";
 
-  const res = await fetch(`${API_BASE}${path}${qs === "?" ? "" : qs}`, {
+  const res = await send(`${API_BASE}${path}${qs === "?" ? "" : qs}`, {
     method: opts.method ?? "GET",
     headers,
     body,

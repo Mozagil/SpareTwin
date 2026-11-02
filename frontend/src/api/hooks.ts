@@ -6,6 +6,9 @@ import type {
   AssetSummary,
   CatalogPart,
   Category,
+  InspectionSummary,
+  QcFlag,
+  Sheet,
   PartDetail,
   PartEvent,
   PartListItem,
@@ -149,3 +152,46 @@ export function useLabels() {
 }
 
 export const resolveQr = (code: string) => api<{ type: "asset" | "part"; id: string }>(`/qr/${encodeURIComponent(code)}`);
+
+// ---------- İnspeksiyon ----------
+export const useDrafts = () =>
+  useQuery({ queryKey: ["inspections", "draft"], queryFn: () => api<InspectionSummary[]>("/inspections", { query: { status: "draft" } }) });
+
+export const useSheet = (id: string | undefined) =>
+  useQuery({ queryKey: ["sheet", id], queryFn: () => api<Sheet>(`/inspections/${id}/sheet`), enabled: !!id });
+
+export const startInspection = (assetId: string, assetHours: number) =>
+  api<{ id: string }>("/inspections", { method: "POST", body: { asset_id: assetId, asset_hours: assetHours } });
+
+export function useInspectionActions(id: string) {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ["sheet", id] });
+  const refreshAll = () =>
+    Promise.all(["sheet", "inspections", "assets", "asset", "part", "parts", "tire-cost"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  return {
+    save: useMutation({
+      mutationFn: (items: { part_item_id: string; metric: string; value: number; unit?: string | null }[]) =>
+        api(`/inspections/${id}/measurements`, { method: "PUT", body: { items } }),
+      onSuccess: refresh,
+    }),
+    photo: useMutation({
+      mutationFn: (v: { part_item_id: string; angle: string; blob: Blob }) => {
+        const form = new FormData();
+        form.append("file", v.blob, `${v.angle}.jpg`);
+        form.append("part_item_id", v.part_item_id);
+        form.append("angle", v.angle);
+        return api(`/inspections/${id}/photos`, { method: "POST", form });
+      },
+      onSuccess: refresh,
+    }),
+    hours: useMutation({
+      mutationFn: (asset_hours: number) => api(`/inspections/${id}`, { method: "PATCH", body: { asset_hours } }),
+      onSuccess: refresh,
+    }),
+    complete: useMutation({
+      mutationFn: () => api<{ status: string; qc_flags: QcFlag[] }>(`/inspections/${id}/complete`, { method: "POST" }),
+      onSuccess: refreshAll,
+    }),
+    cancel: useMutation({ mutationFn: () => api(`/inspections/${id}/cancel`, { method: "POST" }), onSuccess: refreshAll }),
+  };
+}

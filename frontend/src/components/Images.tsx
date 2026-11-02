@@ -3,15 +3,9 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useImage } from "../api/hooks";
 import type { Img, Photo } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { dateTime, num } from "../lib/format";
+import { angleLabel, dateTime, num } from "../lib/format";
 import { ErrorNote } from "./ui";
 
-const ANGLE_LABEL: Record<string, string> = {
-  tread: "Taban",
-  sidewall: "Yanak",
-  damage_closeup: "Hasar (yakın çekim)",
-};
-export const angleLabel = (a: string | null) => (a ? (ANGLE_LABEL[a] ?? a) : "Fotoğraf");
 
 /**
  * Tek görsel kutusu. Yöneticiler görsel ekleyebilir, değiştirebilir, kaldırabilir.

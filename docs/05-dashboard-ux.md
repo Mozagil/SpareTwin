@@ -52,7 +52,7 @@ Durum renkleri her zaman metinle birlikte kullanılır (renk körlüğü): "Krit
 | Kayıt | `/kayit?sekme=…` | 0 | ✅ | teslim al, makine, katalog kalemi, makine modeli, saha |
 | QR etiketleri | `/etiketler` | 0 | ✅ | `POST /labels` → yazdırma sayfası yeni sekmede |
 | QR / seri no arama | üst çubuk | 0 | ✅ | `GET /qr/{kod}` |
-| İnspeksiyon (mobil) | `/inspeksiyon/:id` | 1 | | `POST /inspections`, `PUT .../measurements`, `POST .../photos`, `POST .../complete` |
+| Saha kontrolü (mobil) | `/kontrol`, `/kontrol/:id` | 1 | ✅ | `POST /inspections`, `GET .../sheet`, `PUT .../measurements`, `POST .../photos`, `POST .../complete` |
 | Jant uyumluluğu | `/jantlar` | 1 | | `GET /rims/compliance` |
 | Raporlar | `/raporlar` | 1 | | PDF uç noktası |
 | Stok, bakım planı | `/stok`, `/bakim` | 2 | | Faz 2 |

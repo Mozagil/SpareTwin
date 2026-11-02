@@ -39,7 +39,9 @@ export function AssetPage() {
   const [modal, setModal] = useState<{ kind: "install" | "remove" | "meter"; pos?: Position } | null>(null);
 
   // Başka bir makineye geçilince seçim sıfırlanır
-  useEffect(() => setSelected(null), [id]);
+  useEffect(() => {
+    setSelected(null);
+  }, [id]);
   // Açılışta en kötü durumdaki dolu pozisyonu seç (dashboard ile aynı davranış)
   useEffect(() => {
     if (!asset.data || selected) return;
@@ -71,7 +73,8 @@ export function AssetPage() {
         </div>
         <div className="head-actions">
           <div className="meter"><span>Motor saati</span><strong>{num(a.meter_hours)}</strong></div>
-          {can("technician") && <button className="btn btn-primary" onClick={() => setModal({ kind: "meter" })}>Saat gir</button>}
+          {can("technician") && <button className="btn btn-ghost" onClick={() => setModal({ kind: "meter" })}>Saat gir</button>}
+          {can("technician") && <Link className="btn btn-primary" to={`/kontrol?makine=${a.id}`}>Kontrol başlat</Link>}
         </div>
       </div>
 

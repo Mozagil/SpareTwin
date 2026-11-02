@@ -171,8 +171,11 @@ def part_wear(part_id: UUID, ctx: TenantCtx):
         if not t:
             raise HTTPException(404, "Lastik bulunamadı")
         rows = conn.execute(
-            """select value, asset_hours, measured_at from public.measurements
-                where part_item_id = %s and metric = 'tread_depth_mm' order by measured_at""",
+            """select m.value, m.asset_hours, m.measured_at from public.measurements m
+                 left join public.inspections i on i.id = m.inspection_id
+                where m.part_item_id = %s and m.metric = 'tread_depth_mm'
+                  and (m.inspection_id is null or i.status = 'completed')
+                order by m.measured_at""",
             [part_id],
         ).fetchall()
 
@@ -213,8 +216,10 @@ def tire_cost(ctx: TenantCtx):
 def part_measurements(part_id: UUID, ctx: TenantCtx, metric: str | None = None):
     with ctx.tx() as conn:
         return conn.execute(
-            """select m.metric, m.value, m.unit, m.source, m.asset_hours, m.measured_at, m.inspection_id
+            """select m.metric, m.value, m.unit, m.source, m.asset_hours, m.measured_at, m.inspection_id,
+                      i.status::text as inspection_status
                  from public.measurements m
+                 left join public.inspections i on i.id = m.inspection_id
                 where m.part_item_id = %s and m.tenant_id = %s
                   and (%s::text is null or m.metric = %s)
                 order by m.measured_at""",

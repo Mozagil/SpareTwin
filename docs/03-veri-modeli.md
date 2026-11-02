@@ -94,7 +94,7 @@ TireIQ sunumundaki 4 kalite kapısı `complete_inspection` fonksiyonunda uygulan
 | KK3 Ölçüm | Zorunlu ölçümler var mı, değerler makul aralıkta mı? | Yeniden ölçüm uyarısı |
 | KK4 Sayaç | Motor saati girildi mi, öncekinden geri gitmiyor mu? | Düzeltme istenir |
 
-Hata varsa inspeksiyon `draft` kalır ve `qc_flags` içinde pozisyon pozisyon ne eksik olduğu döner (`POST /inspections/{id}/complete` yanıtı). Saha formu bu listeyi doğrudan saha teknisyenine gösterir. Teknisyen ölçümü düzeltip tekrar gönderdiğinde aynı parça+ölçüm güncellenir, kopya oluşmaz.
+Bir ölçüm, ancak ait olduğu kontrol tamamlandığında "son ölçüm" olarak sağlık hesaplarına girer; taslak ve iptal edilmiş kontrollerin değerleri sayılmaz. Hata varsa inspeksiyon `draft` kalır ve `qc_flags` içinde pozisyon pozisyon ne eksik olduğu döner (`POST /inspections/{id}/complete` yanıtı). Saha formu bu listeyi doğrudan saha teknisyenine gösterir. Teknisyen ölçümü düzeltip tekrar gönderdiğinde aynı parça+ölçüm güncellenir, kopya oluşmaz.
 
 ## Yeni bir parça tipi eklemek
 

@@ -4,6 +4,8 @@ import { Layout } from "./components/Layout";
 import { Loading } from "./components/ui";
 import { AssetPage } from "./pages/AssetPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { InspectionPage } from "./pages/InspectionPage";
+import { InspectionStartPage } from "./pages/InspectionStartPage";
 import { LabelsPage } from "./pages/LabelsPage";
 import { LoginPage, TenantPicker } from "./pages/LoginPage";
 import { PartPage } from "./pages/PartPage";
@@ -25,6 +27,8 @@ export function App() {
           <Route path="parcalar" element={<PartsPage />} />
           <Route path="kayit" element={<RegisterPage />} />
           <Route path="etiketler" element={<LabelsPage />} />
+          <Route path="kontrol" element={<InspectionStartPage />} />
+          <Route path="kontrol/:id" element={<InspectionPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

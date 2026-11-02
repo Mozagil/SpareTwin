@@ -18,7 +18,7 @@ Makine imalatçıları, üretim fabrikaları ve iş makinesi filoları için **d
 |---|---|
 | `frontend/` | React uygulaması: giriş, filo dashboard'u, makine ve parça sayfaları, kayıt, etiketler |
 | `backend/sparetwin/` | FastAPI: kimlik, kayıt, filo, yaşam döngüsü, inspeksiyon, dosyalar, QR etiket |
-| `backend/tests/` | 54 test: kimlik, firma izolasyonu, kayıt, iş kuralları, görseller ve gizlilik, etiket, S3, şema sıfırlama |
+| `backend/tests/` | 58 test: kimlik, firma izolasyonu, kayıt, iş kuralları, kontrol formu, görseller ve gizlilik, etiket, S3, şema sıfırlama |
 | `db/migrations/` | Şema, RLS, iş kuralları, TireIQ modülü, kimlik fonksiyonları |
 | `db/seed/demo.sql` | Demo firma: 4 makine, 29 takılı parça, ölçüm geçmişi |
 | `deploy/` | Canlı ortam paketi (şimdilik kullanılmıyor) |
@@ -32,7 +32,7 @@ Codespace iki container ile açılır: Python 3.12 + Node 22 çalışma ortamı 
 ```bash
 make reset   # şemayı kur + demo veri
 make dev     # API + uygulama birlikte → Ports sekmesinde 5173'ü aç
-make test    # 54 backend + 13 frontend testi
+make test    # 58 backend + 22 frontend testi
 ```
 
 Demo giriş bilgileri (yalnızca geliştirme):
@@ -46,12 +46,21 @@ Hiçbir portu herkese açmaya gerek yok. Uygulama (5173) API'ye Codespace'in iç
 
 Diğer komutlar için `make` yazın.
 
+### Telefondan deneme (mobil kontrol formu)
+
+1. `make dev` çalışırken telefonda tarayıcıyı aç ve GitHub'a aynı hesapla giriş yap.
+2. Bilgisayarda Ports sekmesinde 5173 satırındaki adresi kopyala (`https://…-5173.app.github.dev`), telefona gönder ve aç.
+3. Teknisyen hesabıyla giriş yap → alttaki menüden **Kontrol** → **QR kodunu okut**. Kamera izni istendiğinde izin ver.
+
+Adres HTTPS olduğu için kamera çalışır; portu herkese açmaya gerek yoktur. QR etiketlerini **Etiketler** sayfasından yazdırabilir ya da ekrandaki etiketi telefonla okutabilirsin.
+
 ### Sık karşılaşılanlar
 
 | Mesaj | Çözüm |
 |---|---|
 | `Python paketleri kurulu değil` / `Frontend paketleri kurulu değil` | `make setup` |
 | `Port dolu: [5173, 8000]` | Arka planda eski sunucu kalmış: `make stop`, sonra `make dev` |
+| Girişte "Sunucuya ulaşılamıyor" | API çalışmıyor: `make stop`, sonra `make dev` |
 | Tarayıcı konsolunda `github.dev/pf-signin` uyarısı | Uygulamayı VS Code içindeki önizlemede değil, Ports sekmesindeki 🌐 simgesiyle ayrı sekmede aç |
 
 ### Zip'ten gelen güncellemeyi uygulama
@@ -70,4 +79,4 @@ Bir dosyanın silinmesi gerekiyorsa zip'in yanında not olarak belirtilir. `.dev
 
 ## Şu anki durum
 
-Faz 0 tamamlandı. Faz 1 (TireIQ MVP) başladı: görseller hazır; sırada mobil inspeksiyon formu, ardından toplu içe aktarma ve PDF rapor. Ayrıntı: `docs/04-yol-haritasi.md`.
+Faz 0 tamamlandı. Faz 1 (TireIQ MVP) sürüyor: görseller ve mobil kontrol formu hazır; sırada Excel ile toplu içe aktarma ve PDF rapor. Ayrıntı: `docs/04-yol-haritasi.md`.

@@ -74,6 +74,13 @@ export const NEXT_STATUS: [PartStatus, string][] = [
   ["scrapped", "Hurdaya"],
 ];
 
+export const ANGLE_LABEL: Record<string, string> = {
+  tread: "Taban",
+  sidewall: "Yanak",
+  damage_closeup: "Hasar (yakın çekim)",
+};
+export const angleLabel = (a: string | null) => (a ? (ANGLE_LABEL[a] ?? a) : "Fotoğraf");
+
 export const LAYOUT_LABEL: Record<string, string> = {
   loader: "Lastikli yükleyici",
   reach_stacker: "Reach stacker",

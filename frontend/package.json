@@ -1,7 +1,7 @@
 {
   "name": "sparetwin-web",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.3",
+    "jsqr": "1.4.0",
     "react": "19.1.10",
     "react-dom": "19.1.10",
     "react-router": "7.18.4"

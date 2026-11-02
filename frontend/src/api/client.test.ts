@@ -73,6 +73,13 @@ describe("api istemcisi", () => {
     expect(err.fields[0].field).toBe("reason");
   });
 
+  it("API kapalıyken anlaşılır mesaj verir", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("", { status: 500 })); // Vite proxy: API'ye ulaşamadı
+    await expect(login("a@b.c", "x")).rejects.toThrow("Sunucuya ulaşılamıyor");
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch")); // hiç sunucu yok
+    await expect(api("/assets")).rejects.toThrow("Sunucuya ulaşılamıyor");
+  });
+
   it("seçili firmayı başlıkta gönderir, boş sorgu parametrelerini atlar", async () => {
     session.setTenant("t-1");
     fetchMock.mockResolvedValueOnce(json(200, []));

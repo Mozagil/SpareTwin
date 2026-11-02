@@ -23,6 +23,8 @@ Tarayıcı yalnızca 5173 ile konuşur. `/api` ile başlayan istekleri Vite, Cod
 | `src/components/MachineSchematic.tsx` | Makine üstten görünüş şeması (pozisyon x/y şablondan) |
 | `src/components/PartActions.tsx` | Parça ikizi paneli; takma, sökme, olay kaydı pencereleri |
 | `src/components/WearChart.tsx` | Diş derinliği – parça saati grafiği ve tahmin |
+| `src/components/QrScanner.tsx` | Kamerayla QR okuma: tarayıcının QR desteği varsa onu, yoksa jsQR'ı kullanır; kamera yoksa elle giriş |
+| `src/pages/Inspection*.tsx`, `src/lib/inspection.ts`, `src/lib/image.ts` | Mobil kontrol formu, aralık uyarıları, telefonda fotoğraf küçültme |
 | `src/components/Images.tsx` | Görsel kutusu (yükle/değiştir/kaldır), saha fotoğrafı şeridi, büyütme penceresi |
 | `src/components/ui.tsx` | Panel, Modal, Field, BandChip, ErrorNote… |
 | `src/pages/` | Sayfalar (bkz. `05-dashboard-ux.md` ekran listesi) |

@@ -66,8 +66,9 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 | Kapsam | Not |
 |---|---|
 | ✅ **Görseller** | Katalog kalemi, makine modeli ve makine görseli; parça ikizinde saha fotoğrafları ve büyütme penceresi. Yüklenen her görselde yön düzeltme, 1600 px'e küçültme ve GPS/meta veri silme |
-| Mobil uyumlu inspeksiyon formu (React, telefon tarayıcısı) | QR okut → pozisyon seç → ölç → fotoğraf → kaydet. 4 kalite kapısı |
-| Fotoğraf yükleme, sıkıştırma, zorunlu açılar | |
+| ✅ **Mobil kontrol formu** (`/kontrol`) | Kamerayla QR okutma (Android ve iPhone), motor saati, pozisyon kartları, önceki ölçüm ipucu ve anlık aralık uyarısı, zorunlu fotoğraf yuvaları, "kaydet, sonraki", yarım kalan kontrole devam, 4 kalite kapısı, iptal |
+| ✅ Fotoğraf yükleme, sıkıştırma, zorunlu açılar | Telefonda 1600 px'e küçültülür, sunucuda GPS silinir |
+| ✅ Ölçümler yalnızca tamamlanan kontrolden sayılır | Taslak veya iptal edilmiş kontroldeki değer dashboard'u etkilemez (`0009`) |
 | Lastik ve jant yaşam döngüsü ekranları | Takma, sökme, rotasyon, tamir, kaplama, hurda |
 | Jant NDT uyumluluk takibi | `v_rim_compliance` |
 | Doğrusal aşınma ve kalan saat tahmini | `v_tire_health` |

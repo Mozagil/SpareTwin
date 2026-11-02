@@ -238,3 +238,70 @@ export interface Category {
   is_serialized: boolean;
   is_library: boolean;
 }
+
+// ---------- İnspeksiyon (mobil kontrol formu) ----------
+export interface ProfileItem {
+  metric: string;
+  label: string;
+  unit: string | null;
+  required?: boolean;
+  min?: number;
+  max?: number;
+}
+
+export interface SheetItem {
+  position: string;
+  label: string;
+  category_code: string;
+  x: number | null;
+  y: number | null;
+  part_item_id: string;
+  serial_no: string | null;
+  part_name: string;
+  profile: ProfileItem[];
+  required_angles: string[];
+  values: Record<string, number>;
+  previous: Record<string, { value: number; at: string }>;
+  photos: (Img & { angle: string })[];
+  missing: ({ kind: "metric"; key: string; label: string } | { kind: "photo"; key: string })[];
+  required: boolean;
+  started: boolean;
+  complete: boolean;
+}
+
+export interface QcFlag {
+  gate: "KK1" | "KK2" | "KK3" | "KK4";
+  message: string;
+  position?: string;
+  part_item_id?: string;
+  metric?: string;
+}
+
+export interface Sheet {
+  id: string;
+  status: "draft" | "completed" | "rejected";
+  asset_id: string;
+  asset_code: string;
+  manufacturer: string | null;
+  model: string | null;
+  layout: Layout | null;
+  asset_hours: number | null;
+  meter_hours: number;
+  qc_flags: QcFlag[];
+  started_at: string;
+  completed_at: string | null;
+  items: SheetItem[];
+  progress: { done: number; total: number };
+}
+
+export interface InspectionSummary {
+  id: string;
+  status: string;
+  asset_id: string;
+  asset_code: string;
+  asset_hours: number | null;
+  started_at: string;
+  completed_at: string | null;
+  inspected_by_name: string | null;
+  measured_parts: number;
+}

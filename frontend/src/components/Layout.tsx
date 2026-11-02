@@ -9,6 +9,7 @@ const Icon = {
   parts: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /></>,
   add: <><path d="M12 5v14M5 12h14" /><rect x="3" y="3" width="18" height="18" rx="3" /></>,
   label: <path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 19h2v2h-2zM15 19h2" />,
+  check: <><path d="M9 4h6v3H9z" /><path d="M7 5H5v16h14V5h-2" /><path d="m9 14 2 2 4-4" /></>,
 };
 
 function NavItem({ to, label, icon, end }: { to: string; label: string; icon: keyof typeof Icon; end?: boolean }) {
@@ -57,6 +58,7 @@ export function Layout() {
           <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></svg>
         </div>
         <NavItem to="/" end label="Filo" icon="fleet" />
+        {can("technician") && <NavItem to="/kontrol" label="Kontrol" icon="check" />}
         <NavItem to="/parcalar" label="Parçalar" icon="parts" />
         {can("technician") && <NavItem to="/kayit" label="Kayıt" icon="add" />}
         <NavItem to="/etiketler" label="Etiketler" icon="label" />
