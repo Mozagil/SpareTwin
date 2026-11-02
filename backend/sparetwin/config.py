@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     access_token_minutes: int = 30
     refresh_token_days: int = 30
 
-    # WeWeb editörü ve yayınlanan uygulamanın adresleri (virgülle ayrılmış)
+    # Frontend farklı bir adresten bağlanırsa izin verilen adresler (virgülle ayrılmış).
+    # Frontend /api üzerinden aynı adresten bağlandığında boş kalır.
     cors_origins: str = ""
 
     # Dosya deposu: 'local' = disk (geliştirme, müşteri sunucusu), 's3' = S3 uyumlu depo

@@ -26,6 +26,18 @@ def test_lastik_ikizi_detayi(client, manager):
     assert p["rim"] is None
 
 
+def test_asinma_egrisi_ve_maliyet_raporu(client, manager):
+    w = client.get(f"/parts/{part_id(client, manager, 'MX29-0298')}/wear", headers=manager).json()
+    assert [float(p["tread_mm"]) for p in w["points"]] == [55, 22, 14]
+    assert [float(p["part_hours"]) for p in w["points"]] == [0, 3048, 3680]  # 2100 + (11848 - 10900), 2100 + 1580
+    assert float(w["projection"]["to_hours"]) == 3680 + 539
+    # Lastik olmayan parça
+    assert client.get(f"/parts/{part_id(client, manager, 'VLC-88121')}/wear", headers=manager).status_code == 404
+
+    cost = {r["code"]: float(r["expected_cost_per_hour"]) for r in client.get("/reports/tire-cost", headers=manager).json()}
+    assert cost == {"LD-07": 9.30, "LD-09": 6.76, "RS-02": 5.11, "FL-14": 0.52}
+
+
 def test_qr_cozumleme(client, manager):
     assert client.get("/qr/ST-A-LD07", headers=manager).json()["type"] == "asset"
     assert client.get("/qr/ST-P-MX29-0412", headers=manager).json()["type"] == "part"

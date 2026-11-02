@@ -17,7 +17,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-      # Faz 3 / lokal kurulum: WeWeb'den dışa aktarılan arayüz buraya konur
+      # Faz 3 / lokal kurulum: frontend derlemesi (frontend/dist) buraya konur
       - ./web:/srv/web:ro
     depends_on:
       - api

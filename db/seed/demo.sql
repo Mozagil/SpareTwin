@@ -4,7 +4,7 @@
 -- aynı komut oluşturur (parolalar burada değil, argon2 ile API tarafında).
 -- =====================================================================
 
--- Sabit kimlikler: WeWeb'de test ederken URL'lerde aynı kalsın diye.
+-- Sabit kimlikler: test ederken URL'lerde aynı kalsın diye.
 insert into public.tenants (id, name, slug, plan, settings) values
   ('11111111-1111-1111-1111-111111111111', 'Demo Liman ve Maden A.Ş.', 'demo', 'pilot',
    '{"currency":"USD","locale":"tr-TR"}');

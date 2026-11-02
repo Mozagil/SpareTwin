@@ -9,7 +9,7 @@ flowchart LR
     S[Saha teknisyeni<br/>telefon tarayıcısı]
   end
 
-  W[WeWeb uygulaması<br/>bulutta veya dışa aktarılmış]
+  W[React uygulaması<br/>tarayıcıda, /api üzerinden]
 
   subgraph Sunucu[SpareTwin sunucusu - Docker Compose]
     C[Caddy<br/>HTTPS, sıkıştırma]
@@ -32,11 +32,22 @@ Aynı paket iki şekilde çalışır:
 
 Kod aynı, fark `DEPLOYMENT_MODE` ve birkaç ayarda. Bu yüzden bugünden şu kurallara uyuyoruz: dış servise zorunlu bağımlılık yok, her şey Docker imajında, migrasyonlar imajın içinde ve açılışta otomatik uygulanıyor, dosya deposu değiştirilebilir.
 
+## Arayüz ile API arasındaki bağlantı
+
+Tarayıcı her zaman tek bir adresle konuşur; API istekleri `/api` ile başlar:
+
+| Ortam | Kim aktarır | Nasıl |
+|---|---|---|
+| Geliştirme (Codespace) | Vite geliştirme sunucusu (5173) | `/api/*` → `http://127.0.0.1:8000/*` |
+| Canlı / müşteri sunucusu | Caddy | `/api/*` → API container'ı, diğer her şey → `frontend/dist` |
+
+Bu sayede CORS ayarı gerekmez, API portu dışarı açılmaz ve dosya/etiket linkleri (`PUBLIC_BASE_URL=/api`) her ortamda aynı çalışır.
+
 ## Katmanlar ve sorumluluklar
 
 | Katman | Teknoloji | Ne yapar | Ne yapmaz |
 |---|---|---|---|
-| Arayüz | WeWeb | Ekranlar, formlar, grafikler, mobil uyumlu saha formu | İş kuralı içermez, hesap yapmaz |
+| Arayüz | React + TypeScript (Vite) | Ekranlar, formlar, grafikler, mobil uyumlu saha formu | İş kuralı içermez, hesap yapmaz |
 | API | FastAPI | Kimlik doğrulama, firma bağlamı, girdi doğrulama, dosya yükleme, Türkçe hata mesajları | İş kuralını tekrar yazmaz; veritabanı fonksiyonunu çağırır |
 | İş kuralları | PostgreSQL fonksiyonları | Takma/sökme, sayaç, inspeksiyon kalite kapıları, saat ve sağlık hesapları | |
 | Güvenlik (son halka) | PostgreSQL RLS | Kullanıcı yalnızca kendi firmasının verisini görür | API'ye güvenmez |
@@ -51,7 +62,7 @@ Aynı kural (örneğin "takılı parçanın saati nasıl hesaplanır") tek yerde
 
 ```mermaid
 sequenceDiagram
-  participant W as WeWeb
+  participant W as React
   participant A as FastAPI
   participant D as PostgreSQL
   W->>A: GET /assets<br/>Authorization: Bearer ...<br/>X-Tenant-Id (çok firmalıysa)
@@ -115,7 +126,7 @@ Faz 3'te eklenecek: giriş denemesi sınırı (rate limit), e-posta ile parola s
 | Ortam | Nerede | Amaç |
 |---|---|---|
 | Yerel | Codespace (`make api`) | Geliştirme ve test, demo veri |
-| Geliştirme sunucusu | Küçük VPS, `deploy/` paketi | WeWeb editörünün bağlandığı kalıcı ortam |
+| Geliştirme sunucusu | Küçük VPS, `deploy/` paketi | Ekiple paylaşılan kalıcı test ortamı (sonra) |
 | Canlı | Ayrı VPS, `deploy/` paketi | Pilot müşteriler (Faz 1 sonu) |
 
 Kural: Şema değişikliği her zaman yeni bir `db/migrations/000N_...sql` dosyasıdır. Uygulanmış bir migrasyon düzenlenmez; çalıştırıcı bunu fark edip uyarır.
@@ -126,7 +137,7 @@ Bugünden hazır olanlar: tek komutla kalkan compose paketi, imaj içinde migras
 
 Faz 3'te eklenecekler:
 
-- WeWeb arayüzünü dışa aktarıp aynı sunucudan sunma (Caddyfile'da hazır şablon). WeWeb'in kod dışa aktarma özelliği ücretli planlarda var ve internetsiz ağda da çalışabiliyor.
+- Frontend derlemesini (`frontend/dist`) aynı sunucudan sunma (Caddyfile'da hazır şablon); statik dosya olduğu için internetsiz ağda da çalışır.
 - İç ağda HTTPS: telefon tarayıcısı kamera ve QR okumayı yalnızca güvenli bağlantıda açar. Müşterinin alan adı ve sertifikası ya da kurulum betiğinin ürettiği iç sertifika.
 - İnternetsiz çalışan imzalı lisans dosyası.
 - Tek komutla güncelleme ve tanılama paketi (log toplama).

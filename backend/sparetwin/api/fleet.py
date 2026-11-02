@@ -138,6 +138,60 @@ def part_events(part_id: UUID, ctx: TenantCtx):
         ).fetchall()
 
 
+@router.get("/parts/{part_id}/wear", summary="Lastik aşınma eğrisi: parça saatine göre diş derinliği ve tahmin")
+def part_wear(part_id: UUID, ctx: TenantCtx):
+    """Grafik için hazır veri. Ölçümler makine saatiyle kaydedilir; burada lastiğin
+    kendi çalışma saatine çevrilir (lastik makineler arasında taşınabildiği için)."""
+    with ctx.tx() as conn:
+        t = conn.execute(
+            """select th.id, th.hours_total, th.otd_mm, th.scrap_tread_mm, th.tread_mm,
+                      th.projected_hours_left, th.wear_mm_per_hour, th.status,
+                      pi.installed_at_hours, pi.hours_accumulated
+                 from public.v_tire_health th join public.part_items pi on pi.id = th.id
+                where th.id = %s and th.tenant_id = %s""",
+            [part_id, ctx.tenant_id],
+        ).fetchone()
+        if not t:
+            raise HTTPException(404, "Lastik bulunamadı")
+        rows = conn.execute(
+            """select value, asset_hours, measured_at from public.measurements
+                where part_item_id = %s and metric = 'tread_depth_mm' order by measured_at""",
+            [part_id],
+        ).fetchall()
+
+    points = [{"part_hours": 0, "tread_mm": t["otd_mm"], "kind": "new", "measured_at": None}]
+    for r in rows:
+        # Yalnızca mevcut montajdaki ölçümler parça saatine güvenle çevrilebilir
+        if (t["status"] == "installed" and r["asset_hours"] is not None
+                and t["installed_at_hours"] is not None and r["asset_hours"] >= t["installed_at_hours"]):
+            ph = t["hours_accumulated"] + (r["asset_hours"] - t["installed_at_hours"])
+            points.append({"part_hours": ph, "tread_mm": r["value"], "kind": "measured",
+                           "measured_at": r["measured_at"]})
+    projection = None
+    if t["projected_hours_left"] is not None and t["tread_mm"] is not None:
+        projection = {"from_hours": t["hours_total"], "from_mm": t["tread_mm"],
+                      "to_hours": t["hours_total"] + t["projected_hours_left"], "to_mm": t["scrap_tread_mm"]}
+    return {"otd_mm": t["otd_mm"], "scrap_tread_mm": t["scrap_tread_mm"], "hours_total": t["hours_total"],
+            "wear_mm_per_hour": t["wear_mm_per_hour"], "points": points, "projection": projection}
+
+
+@router.get("/reports/tire-cost", summary="Makine başına lastik maliyeti (saat başı, ömür sonu beklenen)")
+def tire_cost(ctx: TenantCtx):
+    with ctx.tx() as conn:
+        return conn.execute(
+            """select a.id as asset_id, a.code,
+                      count(th.id) as tires,
+                      count(th.expected_cost_per_hour) as tires_with_data,
+                      round(sum(th.expected_cost_per_hour), 2) as expected_cost_per_hour
+                 from public.assets a
+                 join public.v_tire_health th on th.current_asset_id = a.id and th.status = 'installed'
+                where a.tenant_id = %s
+                group by a.id, a.code
+                order by expected_cost_per_hour desc nulls last""",
+            [ctx.tenant_id],
+        ).fetchall()
+
+
 @router.get("/parts/{part_id}/measurements", summary="Ölçüm geçmişi (grafik için)")
 def part_measurements(part_id: UUID, ctx: TenantCtx, metric: str | None = None):
     with ctx.tx() as conn:

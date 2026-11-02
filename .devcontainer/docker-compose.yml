@@ -1,12 +1,14 @@
 # Codespaces / Dev Container ortamı: iki container.
-#   app → kod burada çalışır (Python 3.12)
+#   app → kod burada çalışır (Python 3.12 + Node 22, bkz. Dockerfile)
 #   db  → PostgreSQL 17
 # app, db ile aynı ağı paylaşır (network_mode); bu yüzden veritabanı
 # her yerde olduğu gibi localhost:5432 adresinden erişilir.
 # Docker-in-Docker gerekmez.
 services:
   app:
-    image: mcr.microsoft.com/devcontainers/python:1-3.12-bookworm
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ../..:/workspaces:cached
     command: sleep infinity

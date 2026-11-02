@@ -44,14 +44,16 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 | 43 otomatik test | ✅ Hazır |
 | Codespace ortamı (Python 3.12 + PostgreSQL), GitHub | ✅ Hazır |
 | Dashboard görsel prototipi | ✅ Hazır (`prototype/`) |
-| WeWeb projesi: tasarım jetonları, giriş (Custom Auth), firma seçimi | ⏳ Sırada |
-| WeWeb: filo dashboard'u canlı API'ye bağlama | ⏳ |
-| WeWeb: makine şeması özel bileşeni, parça detay sayfası | ⏳ |
-| WeWeb: makine/parça ekleme formları, etiket yazdır düğmesi | ⏳ |
+| React frontend: giriş, oturum yenileme, firma seçimi, rol bazlı menü | ✅ Hazır (`frontend/`) |
+| Filo dashboard'u: filo şeridi, makine şeması, parça ikizi, aşınma grafiği, öncelikli işler, maliyet | ✅ Hazır |
+| Makine ve parça sayfaları: takma, sökme, motor saati, olay kaydı | ✅ Hazır |
+| Kayıt formları, parça listesi, QR etiket yazdırma, QR/seri no arama | ✅ Hazır |
+| Frontend testleri (8) ve 10 adımlık uçtan uca tarayıcı senaryosu | ✅ Hazır |
+| Senin Codespace'inde doğrulama (`make dev`) | ⏳ Sırada |
 
 **Sonraya ertelendi (sunucu ve alan adı işleriyle birlikte):** geliştirme/canlı sunucu, alan adı, hata izleme ve uptime kontrolü. Faz 0 boyunca her şey Codespace'te çalışır.
 
-**Bitiş kriteri:** WeWeb üzerinden yeni bir makine ve lastikleri girilip QR etiketleri yazdırılabiliyor; demo filo dashboard'da görünüyor; bir lastik sökülüp yenisi takıldığında dashboard anında doğru sonucu gösteriyor.
+**Bitiş kriteri:** Arayüzden yeni bir makine ve lastikleri girilip QR etiketleri yazdırılabiliyor; demo filo dashboard'da görünüyor; bir lastik sökülüp yenisi takıldığında dashboard anında doğru sonucu gösteriyor.
 
 **Kapsam dışı:** Mobil form, rapor, faturalama.
 
@@ -63,7 +65,7 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 
 | Kapsam | Not |
 |---|---|
-| Mobil uyumlu inspeksiyon formu (WeWeb, telefon tarayıcısı) | QR okut → pozisyon seç → ölç → fotoğraf → kaydet. 4 kalite kapısı |
+| Mobil uyumlu inspeksiyon formu (React, telefon tarayıcısı) | QR okut → pozisyon seç → ölç → fotoğraf → kaydet. 4 kalite kapısı |
 | Fotoğraf yükleme, sıkıştırma, zorunlu açılar | |
 | Lastik ve jant yaşam döngüsü ekranları | Takma, sökme, rotasyon, tamir, kaplama, hurda |
 | Jant NDT uyumluluk takibi | `v_rim_compliance` |
@@ -114,7 +116,7 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 | KVKK metinleri, kullanım koşulları, veri işleme sözleşmesi | Hukuki kontrol gerekli |
 | PWA | Ana ekrana ekleme, zayıf internette çalışma (çevrimdışı kuyruk) |
 | Giriş güvenliği | Deneme sınırı, e-posta ile parola sıfırlama, davet akışı |
-| **Müşteri sunucusu kurulum paketi** | WeWeb dışa aktarımı aynı sunucuda, iç ağ HTTPS, imzalı lisans dosyası, tek komutla güncelleme, tanılama paketi |
+| **Müşteri sunucusu kurulum paketi** | Frontend derlemesi aynı sunucuda, iç ağ HTTPS, imzalı lisans dosyası, tek komutla güncelleme, tanılama paketi |
 | Çoklu dil | Türkçe + İngilizce (ihracat pazarı) |
 
 **Bitiş kriteri:** İlk 5 ödeme yapan müşteri (TireIQ sunumundaki hedef) ve en az bir müşteri sunucusuna deneme kurulumu.
@@ -160,7 +162,7 @@ KOBİ ERP yol haritasındaki Faz 1–3 burada, parça kataloğunu ortak kullanar
 | Risk | Olasılık | Önlem |
 |---|---|---|
 | Saha ekibi veri girmiyor | Yüksek | Formda en az alan, QR ile 3 saniyede kimlik, ilk girişi biz yapıyoruz, yöneticiye "kim girmedi" değil "hangi makine eksik" raporu |
-| WeWeb ile karmaşık ekranlar zorlaşır | Orta | Kurallar veritabanında ve API'de; şema gibi özel çizimler WeWeb'in özel bileşen özelliğiyle |
+| Ekran değişiklikleri kod gerektirir (görsel editör yok) | Orta | Bileşenler küçük ve tek tasarım diliyle; kurallar veritabanında olduğu için arayüz ince kalır |
 | Kendi backend'imizin işletme yükü (güncelleme, yedek, güvenlik yaması) | Orta | Docker ile tekrarlanabilir kurulum, otomatik yedek, testli migrasyonlar; Faz 1'de izleme |
 | Çok sayıda müşteri sunucusunu güncel tutmak | Orta (Faz 3+) | Sürümlü imajlar, açılışta otomatik migrasyon, tek komutla güncelleme |
 | Kapsam şişmesi (her şey ERP olsun) | Yüksek | Faz bitiş kriterleri net; Faz 4 ancak Faz 3 kriteri tutunca başlar |

@@ -8,3 +8,5 @@ __pycache__/
 .DS_Store
 *.log
 build/
+node_modules/
+frontend/dist/

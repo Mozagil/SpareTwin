@@ -24,7 +24,10 @@ def init_pool(url: str, min_size: int = 1, max_size: int = 10) -> ConnectionPool
             url,
             min_size=min_size,
             max_size=max_size,
-            kwargs={"row_factory": dict_row, "autocommit": False},
+            # prepare_threshold=None: sunucu tarafı hazır sorgu (prepared statement) kullanma.
+            # Aksi halde API çalışırken şema değişirse (make reset, migrasyon) önbellekteki
+            # planlar eskir ve "cached plan must not change result type" hatası alınır.
+            kwargs={"row_factory": dict_row, "autocommit": False, "prepare_threshold": None},
             open=True,
         )
     return _pool

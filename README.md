@@ -6,7 +6,7 @@ Makine imalatçıları, üretim fabrikaları ve iş makinesi filoları için **d
 
 | Katman | Teknoloji |
 |---|---|
-| Arayüz | WeWeb (REST API'ye bağlanır) |
+| Arayüz | React 19 + TypeScript (Vite) |
 | API | Python 3.12 + FastAPI |
 | Veritabanı | PostgreSQL 17, satır bazlı güvenlik (RLS) ile firma izolasyonu |
 | Dosyalar | Sunucu diski veya S3 uyumlu depo |
@@ -16,23 +16,23 @@ Makine imalatçıları, üretim fabrikaları ve iş makinesi filoları için **d
 
 | Yol | İçerik |
 |---|---|
-| `backend/sparetwin/` | FastAPI uygulaması: kimlik, kayıt, filo, yaşam döngüsü, inspeksiyon, dosyalar, QR etiket |
-| `backend/tests/` | 43 test: kimlik, firma izolasyonu, kayıt, iş kuralları, fotoğraf, etiket, S3 |
+| `frontend/` | React uygulaması: giriş, filo dashboard'u, makine ve parça sayfaları, kayıt, etiketler |
+| `backend/sparetwin/` | FastAPI: kimlik, kayıt, filo, yaşam döngüsü, inspeksiyon, dosyalar, QR etiket |
+| `backend/tests/` | 45 test: kimlik, firma izolasyonu, kayıt, iş kuralları, fotoğraf, etiket, S3, şema sıfırlama |
 | `db/migrations/` | Şema, RLS, iş kuralları, TireIQ modülü, kimlik fonksiyonları |
 | `db/seed/demo.sql` | Demo firma: 4 makine, 29 takılı parça, ölçüm geçmişi |
-| `deploy/` | Canlı ortam: compose, Caddyfile, yedekleme betiği |
-| `prototype/index.html` | Filo dashboard prototipi (WeWeb için görsel referans) |
-| `docs/` | Vizyon, mimari, veri modeli, yol haritası, UX, WeWeb rehberi, kararlar |
+| `deploy/` | Canlı ortam paketi (şimdilik kullanılmıyor) |
+| `prototype/index.html` | İlk tasarım taslağı (statik, demo verili) |
+| `docs/` | Vizyon, mimari, veri modeli, yol haritası, UX, frontend rehberi, kararlar |
 
-## Codespace'te başlangıç
+## Codespace'te çalıştırma
 
-Codespace iki container ile açılır (Python 3.12 + PostgreSQL 17); Python paketleri kurulur ve `.env` oluşturulur.
+Codespace iki container ile açılır: Python 3.12 + Node 22 çalışma ortamı ve PostgreSQL 17. Paketler kurulur, `.env` oluşturulur.
 
 ```bash
-make reset      # şemayı kur + demo veri
-make api        # API: 8000 portu, dokümantasyon /docs
-make test       # 43 test
-make prototype  # dashboard prototipi: 8080 portu
+make reset   # şemayı kur + demo veri
+make dev     # API + uygulama birlikte → Ports sekmesinde 5173'ü aç
+make test    # 45 backend + 8 frontend testi
 ```
 
 Demo giriş bilgileri (yalnızca geliştirme):
@@ -42,27 +42,27 @@ Demo giriş bilgileri (yalnızca geliştirme):
 | `yonetici@demo.sparetwin.dev` | `demo-parola-2026` | owner |
 | `teknisyen@demo.sparetwin.dev` | `demo-parola-2026` | technician |
 
-API'yi denemenin en kolay yolu: `make api` → **Ports** sekmesinde 8000 → tarayıcıda `/docs` → **POST /auth/login** ile giriş → dönen `access_token`'ı sağ üstteki **Authorize** düğmesine yapıştır.
+Hiçbir portu herkese açmaya gerek yok. Uygulama (5173) API'ye Codespace'in içinden bağlanır. API dokümanı için Ports sekmesinden 8000 açılıp sonuna `/docs` eklenebilir.
 
-### WeWeb'i Codespace'teki API'ye bağlamak (geliştirme)
+Diğer komutlar için `make` yazın.
 
-WeWeb bulutta çalıştığı için API'ye internetten ulaşması gerekir:
+### Sık karşılaşılanlar
 
-1. **Ports** sekmesinde 8000 portuna sağ tık → **Port Visibility → Public**.
-2. Görünen `https://...-8000.app.github.dev` adresini kopyala; `.env` içinde `PUBLIC_BASE_URL` olarak yaz ve `make api`'yi yeniden başlat.
-3. WeWeb'de bu adresi API taban adresi olarak kullan (`docs/06-weweb-rehberi.md`).
-
-Şirket hesabında portu herkese açma yasaklanmışsa bu adım çalışmaz; o durumda Faz 0 sonundaki geliştirme sunucusunu (`deploy/`) bekleriz. Herkese açık portta yalnızca demo veri olmalı.
+| Mesaj | Çözüm |
+|---|---|
+| `Python paketleri kurulu değil` / `Frontend paketleri kurulu değil` | `make setup` |
+| `Port dolu: [5173, 8000]` | Arka planda eski sunucu kalmış: `make stop`, sonra `make dev` |
+| Tarayıcı konsolunda `github.dev/pf-signin` uyarısı | Uygulamayı VS Code içindeki önizlemede değil, Ports sekmesindeki 🌐 simgesiyle ayrı sekmede aç |
 
 ### Zip'ten gelen güncellemeyi uygulama
 
 ```bash
 unzip -o SpareTwin-*.zip -d /tmp/st && cp -r /tmp/st/SpareTwin/. . && rm -rf /tmp/st SpareTwin-*.zip
 git status            # neler değişti
-make reset && make test
+make setup && make reset && make test
 ```
 
-Bir dosyanın silinmesi gerekiyorsa (bu sürümdeki `supabase/` klasörü ve `package.json` gibi) zip'in yanında not olarak belirtilir.
+Bir dosyanın silinmesi gerekiyorsa zip'in yanında not olarak belirtilir. `.devcontainer` değiştiyse container yeniden derlenir (**Codespaces: Rebuild Container**).
 
 ## Canlı ortam
 
@@ -70,4 +70,4 @@ Bir dosyanın silinmesi gerekiyorsa (bu sürümdeki `supabase/` klasörü ve `pa
 
 ## Şu anki durum
 
-Faz 0'ın backend tarafı hazır ve test edildi (kayıt ve QR etiket dahil). Sıradaki iş: WeWeb arayüzünü Codespace'teki API'ye bağlamak. Ayrıntı: `docs/04-yol-haritasi.md`.
+Faz 0 tamamlandı: backend, React arayüzü, kayıt ve QR etiketleri çalışıyor ve test edildi. Sıradaki faz: TireIQ MVP (mobil inspeksiyon formu, PDF rapor, toplu içe aktarma). Ayrıntı: `docs/04-yol-haritasi.md`.

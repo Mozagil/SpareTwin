@@ -1,6 +1,6 @@
 # Dashboard ve kullanıcı deneyimi
 
-Referans: `prototype/index.html` (Codespace'te `make prototype`). Prototip demo veriyle çalışır ve hesapları API'nin döndürdüğü değerlerle aynı formüllerle yapar; WeWeb'de birebir aynı ekran kurulacak.
+Uygulama: `frontend/` (Codespace'te `make dev`, 5173 portu). İlk tasarım taslağı `prototype/index.html` olarak duruyor; React uygulaması bu taslağın görsel dilini birebir kullanır.
 
 ## İlkeler
 
@@ -40,22 +40,23 @@ Yazı tipi: **Barlow** (gövde) ve **Barlow Condensed** (başlık ve sayılar). 
 
 Durum renkleri her zaman metinle birlikte kullanılır (renk körlüğü): "Kritik", "%13", "2 kritik parça".
 
-## Ekran listesi (WeWeb sayfaları)
+## Ekran listesi (frontend sayfaları)
 
-| Sayfa | Yol | Faz | API |
-|---|---|---|---|
-| Giriş | `/giris` | 0 | `POST /auth/login` |
-| Filo durumu | `/` | 0 | `GET /assets` |
-| Makine detayı | `/makine/:id` | 0 | `GET /assets/{id}` (pozisyonlar ve takılı parçalar dahil) |
-| Parça ikizi | `/parca/:id` | 0 | `GET /parts/{id}`, `/parts/{id}/events`, `/parts/{id}/measurements` |
-| QR sonucu | `/q/:qr` | 0 | `GET /qr/{code}` → makine veya parçaya yönlendirir |
-| İnspeksiyon (mobil) | `/inspeksiyon/:id` | 1 | `POST /inspections`, `PUT .../measurements`, `POST .../photos`, `POST .../complete` |
-| Takma / sökme | modal | 1 | `POST /parts/{id}/install`, `POST /parts/{id}/remove` |
-| Jant uyumluluğu | `/jantlar` | 1 | `GET /rims/compliance` |
-| Raporlar | `/raporlar` | 1 | PDF uç noktası (Faz 1) |
-| Stok | `/stok` | 2 | `GET /parts?status=in_stock` + stok uç noktaları (Faz 2) |
-| Bakım planı | `/bakim` | 2 | Faz 2 |
-| Ayarlar | `/ayarlar` | 0–3 | firma, kullanıcılar, kategoriler, şablonlar |
+| Sayfa | Yol | Faz | Durum | API |
+|---|---|---|---|---|
+| Giriş, firma seçimi | (oturum yoksa) | 0 | ✅ | `POST /auth/login`, `/auth/refresh` |
+| Filo durumu | `/` | 0 | ✅ | `GET /assets`, `/assets/{id}`, `/parts`, `/reports/tire-cost` |
+| Makine | `/makine/:id` | 0 | ✅ | `GET /assets/{id}`; tak, sök, saat gir |
+| Parça ikizi | `/parca/:id` | 0 | ✅ | `GET /parts/{id}`, `/events`, `/wear`; sök, kayıt ekle |
+| Parçalar | `/parcalar` | 0 | ✅ | `GET /parts` (filtreler adres çubuğunda) |
+| Kayıt | `/kayit?sekme=…` | 0 | ✅ | teslim al, makine, katalog kalemi, makine modeli, saha |
+| QR etiketleri | `/etiketler` | 0 | ✅ | `POST /labels` → yazdırma sayfası yeni sekmede |
+| QR / seri no arama | üst çubuk | 0 | ✅ | `GET /qr/{kod}` |
+| İnspeksiyon (mobil) | `/inspeksiyon/:id` | 1 | | `POST /inspections`, `PUT .../measurements`, `POST .../photos`, `POST .../complete` |
+| Jant uyumluluğu | `/jantlar` | 1 | | `GET /rims/compliance` |
+| Raporlar | `/raporlar` | 1 | | PDF uç noktası |
+| Stok, bakım planı | `/stok`, `/bakim` | 2 | | Faz 2 |
+| Ayarlar | `/ayarlar` | 0–3 | | firma, kullanıcılar, kategoriler, şablonlar |
 
 ## Mobil inspeksiyon akışı (Faz 1)
 

@@ -5,10 +5,10 @@
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "shutdownAction": "stopCompose",
   "postCreateCommand": "make setup",
-  "forwardPorts": [8000, 8080],
+  "forwardPorts": [5173, 8000],
   "portsAttributes": {
-    "8000": { "label": "SpareTwin API", "onAutoForward": "notify" },
-    "8080": { "label": "Dashboard prototipi", "onAutoForward": "openBrowser" }
+    "5173": { "label": "SpareTwin (uygulama)", "onAutoForward": "openBrowser" },
+    "8000": { "label": "SpareTwin API (/docs)", "onAutoForward": "silent" }
   },
   "customizations": {
     "vscode": {

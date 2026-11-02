@@ -3,7 +3,7 @@
 1) POST /labels (oturumla): hangi makine/parçalar için etiket istendiği.
    Firma kontrolü burada yapılır, kısa ömürlü bir yazdırma linki döner.
 2) GET /labels/sheet/{token}: A4 yazdırma sayfası. Oturum başlığı gerekmez,
-   böylece WeWeb yeni sekmede açabilir. Link birkaç dakika geçerlidir.
+   böylece arayüz yeni sekmede açabilir. Link birkaç dakika geçerlidir.
 
 Etiket ölçüsü: 63,5 × 38,1 mm, A4'te 3 × 7 = 21 etiket (yaygın hazır etiket
 kâğıdı ölçüsü, ör. L7160). QR'ın içinde yalnızca kod vardır (ST-A-..., ST-P-...).

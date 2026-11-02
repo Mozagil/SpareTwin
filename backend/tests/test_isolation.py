@@ -67,3 +67,4 @@ def test_kimliksiz_oturum_hicbir_sey_gormez(client):
     with user_tx(None) as conn:
         assert conn.execute("select count(*) as n from public.assets").fetchone()["n"] == 0
         assert conn.execute("select count(*) as n from public.tenants").fetchone()["n"] == 0
+

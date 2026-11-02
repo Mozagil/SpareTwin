@@ -81,7 +81,7 @@ kalan saat           = (güncel diş − hurda sınırı) ÷ aşınma hızı
 ömür sonu saat başı maliyet = toplam maliyet ÷ (toplam saat + kalan saat)
 ```
 
-Bu bilerek basit tutuldu. TireIQ sunumundaki model yol haritası aynen geçerli: veri biriktikçe Random Forest/XGBoost, sonra koşul bazlı (zemin, yük) modeller. Görünümün çıktı kolonları (`projected_hours_left`) ve API yanıtı aynı kalacağı için WeWeb ekranları model değişince etkilenmez.
+Bu bilerek basit tutuldu. TireIQ sunumundaki model yol haritası aynen geçerli: veri biriktikçe Random Forest/XGBoost, sonra koşul bazlı (zemin, yük) modeller. Görünümün çıktı kolonları (`projected_hours_left`) ve API yanıtı aynı kalacağı için arayüz ekranları model değişince etkilenmez.
 
 ## İnspeksiyon kalite kapıları
 
@@ -94,7 +94,7 @@ TireIQ sunumundaki 4 kalite kapısı `complete_inspection` fonksiyonunda uygulan
 | KK3 Ölçüm | Zorunlu ölçümler var mı, değerler makul aralıkta mı? | Yeniden ölçüm uyarısı |
 | KK4 Sayaç | Motor saati girildi mi, öncekinden geri gitmiyor mu? | Düzeltme istenir |
 
-Hata varsa inspeksiyon `draft` kalır ve `qc_flags` içinde pozisyon pozisyon ne eksik olduğu döner (`POST /inspections/{id}/complete` yanıtı). WeWeb formu bu listeyi doğrudan saha teknisyenine gösterir. Teknisyen ölçümü düzeltip tekrar gönderdiğinde aynı parça+ölçüm güncellenir, kopya oluşmaz.
+Hata varsa inspeksiyon `draft` kalır ve `qc_flags` içinde pozisyon pozisyon ne eksik olduğu döner (`POST /inspections/{id}/complete` yanıtı). Saha formu bu listeyi doğrudan saha teknisyenine gösterir. Teknisyen ölçümü düzeltip tekrar gönderdiğinde aynı parça+ölçüm güncellenir, kopya oluşmaz.
 
 ## Yeni bir parça tipi eklemek
 
