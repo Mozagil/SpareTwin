@@ -42,6 +42,7 @@ def sniff_mime(head: bytes) -> str | None:
 
 class Storage(Protocol):
     def put(self, key: str, data: bytes, mime: str) -> None: ...
+    def get(self, key: str) -> bytes: ...
     def signed_url(self, key: str, mime: str, file_name: str | None) -> str: ...
     def delete(self, key: str) -> None: ...
 
@@ -64,6 +65,9 @@ class LocalStorage:
         tmp = p.with_suffix(p.suffix + ".part")
         tmp.write_bytes(data)
         tmp.replace(p)
+
+    def get(self, key: str) -> bytes:
+        return self.path_for(key).read_bytes()
 
     def signed_url(self, key: str, mime: str, file_name: str | None) -> str:
         token = create_media_token(self.settings, key, mime, file_name)
@@ -89,6 +93,9 @@ class S3Storage:
 
     def put(self, key: str, data: bytes, mime: str) -> None:
         self.client.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=mime)
+
+    def get(self, key: str) -> bytes:
+        return self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
 
     def signed_url(self, key: str, mime: str, file_name: str | None) -> str:
         params = {"Bucket": self.bucket, "Key": key, "ResponseContentType": mime}

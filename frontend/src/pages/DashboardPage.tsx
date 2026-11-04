@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { useAsset, useAssets, useCatalogParts, useParts, useTireCost } from "../api/hooks";
 import type { AssetSummary, Position } from "../api/types";
 import { MachineSchematic } from "../components/MachineSchematic";
+import { ReportButton } from "../components/ReportButton";
 import { PartTwin } from "../components/PartActions";
 import { Empty, ErrorNote, Loading, Panel } from "../components/ui";
 import { LAYOUT_LABEL, categoryLabel, num, pct, usd } from "../lib/format";
@@ -159,7 +160,7 @@ export function DashboardPage() {
 
   return (
     <>
-      <div className="page-head"><h1>Filo durumu</h1></div>
+      <div className="page-head"><h1>Filo durumu</h1><ReportButton /></div>
       <FleetStrip assets={assets.data} selected={assetId} onSelect={(id) => { setAssetId(id); setSlot(null); }} />
       <div className="dash">
         <Panel

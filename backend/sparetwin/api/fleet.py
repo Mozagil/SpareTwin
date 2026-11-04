@@ -5,6 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 
 from .deps import AppStorage, TenantCtx
 from .images import entity_image, image_out, part_photos
@@ -210,6 +211,23 @@ def tire_cost(ctx: TenantCtx):
                 order by expected_cost_per_hour desc nulls last""",
             [ctx.tenant_id],
         ).fetchall()
+
+
+@router.get("/reports/fleet.pdf", summary="PDF durum raporu (tüm filo, bir saha veya tek makine)",
+            response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
+def fleet_pdf(ctx: TenantCtx, storage: AppStorage, asset_id: UUID | None = None, site_id: UUID | None = None):
+    from ..report import Scope, gather, render
+
+    with ctx.tx() as conn:
+        if asset_id and not conn.execute(
+            "select 1 from public.assets where id = %s and tenant_id = %s", [asset_id, ctx.tenant_id]
+        ).fetchone():
+            raise HTTPException(404, "Makine bulunamadı")
+        data = gather(conn, storage, ctx.tenant_id, ctx.user_id, Scope(asset_id=asset_id, site_id=site_id))
+    pdf = render(data)
+    stamp = data["now"].strftime("%Y-%m-%d")
+    name = f"sparetwin-{data['assets'][0]['code']}-{stamp}.pdf" if asset_id and data["assets"] else f"sparetwin-filo-raporu-{stamp}.pdf"
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 @router.get("/parts/{part_id}/measurements", summary="Ölçüm geçmişi (grafik için)")

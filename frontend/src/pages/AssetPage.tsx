@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { MachineSchematic } from "../components/MachineSchematic";
 import { InstallModal, PartTwin, RemoveModal } from "../components/PartActions";
 import { ImageBox } from "../components/Images";
+import { ReportButton } from "../components/ReportButton";
 import { BandChip, ErrorNote, Loading, Modal, Field, Panel } from "../components/ui";
 import { LAYOUT_LABEL, categoryLabel, date, num, pct } from "../lib/format";
 
@@ -73,6 +74,7 @@ export function AssetPage() {
         </div>
         <div className="head-actions">
           <div className="meter"><span>Motor saati</span><strong>{num(a.meter_hours)}</strong></div>
+          <ReportButton assetId={a.id} />
           {can("technician") && <button className="btn btn-ghost" onClick={() => setModal({ kind: "meter" })}>Saat gir</button>}
           {can("technician") && <Link className="btn btn-primary" to={`/kontrol?makine=${a.id}`}>Kontrol başlat</Link>}
         </div>

@@ -1,6 +1,6 @@
 [project]
 name = "sparetwin"
-version = "0.7.0"
+version = "0.8.0"
 description = "SpareTwin API — dijital parça ikizi platformu"
 requires-python = ">=3.12,<3.14"
 dependencies = [
@@ -18,6 +18,7 @@ dependencies = [
   "pillow==11.1.0",
   "openpyxl==3.1.5",
   "defusedxml==0.7.1",
+  "reportlab==4.2.5",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +26,7 @@ dev = [
   "pytest==8.3.5",
   "httpx==0.28.1",
   "moto[s3]==5.1.1",
+  "pypdf==5.1.0",
 ]
 
 [build-system]
@@ -33,6 +35,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["sparetwin*"]
+
+[tool.setuptools.package-data]
+# Rapor yazı tipleri (SIL Open Font License) Docker imajına da girsin
+sparetwin = ["fonts/*.ttf", "fonts/OFL.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

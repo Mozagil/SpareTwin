@@ -289,6 +289,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); out
   border-radius: 10px; cursor: pointer; justify-self: center; }
 .lightbox-nav.prev { grid-column: 1; } .lightbox-nav.next { grid-column: 3; }
 
+/* ---------- Rapor düğmesi ---------- */
+.report-btn { display: inline-grid; gap: 4px; }
+
 /* ---------- Excel içe aktarma ---------- */
 .steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
 .steps li > div { margin-top: 6px; }

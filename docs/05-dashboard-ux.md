@@ -55,7 +55,7 @@ Durum renkleri her zaman metinle birlikte kullanılır (renk körlüğü): "Krit
 | QR / seri no arama | üst çubuk | 0 | ✅ | `GET /qr/{kod}` |
 | Saha kontrolü (mobil) | `/kontrol`, `/kontrol/:id` | 1 | ✅ | `POST /inspections`, `GET .../sheet`, `PUT .../measurements`, `POST .../photos`, `POST .../complete` |
 | Jant uyumluluğu | `/jantlar` | 1 | | `GET /rims/compliance` |
-| Raporlar | `/raporlar` | 1 | | PDF uç noktası |
+| PDF durum raporu | Filo ve makine sayfalarında "PDF rapor" düğmesi | 1 | ✅ | `GET /reports/fleet.pdf?asset_id=&site_id=` |
 | Stok, bakım planı | `/stok`, `/bakim` | 2 | | Faz 2 |
 | Ayarlar | `/ayarlar` | 0–3 | | firma, kullanıcılar, kategoriler, şablonlar |
 
