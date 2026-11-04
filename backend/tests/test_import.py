@@ -55,7 +55,7 @@ def test_onizleme_hicbir_sey_yazmaz(client, manager):
     assert r.status_code == 200, r.text
     s = r.json()["summary"]
     # Yeni makine ve katalog uyarısı yalnızca ilk satırda; diğer satırlar hazır
-    assert s == {"total": 4, "ok": 3, "warnings": 1, "errors": 0, "new_assets": 1, "new_catalog": 1, "with_tread": 3}
+    assert s == {"total": 4, "ok": 3, "warnings": 1, "errors": 0, "new_assets": 1, "new_catalog": 1, "with_tread": 3, "rims": 0}
     assert len(client.get("/parts", headers=manager, params={"limit": 500}).json()) == before
     assert "LD-30" not in [a["code"] for a in client.get("/assets", headers=manager).json()]
 
@@ -98,7 +98,7 @@ def test_hata_varsa_hicbir_sey_kaydedilmez(client, manager):
 def test_ice_aktarma_uctan_uca(client, manager):
     r = post(client, manager, xlsx(H, GOOD), dry_run=False)
     assert r.status_code == 200, r.text
-    assert r.json()["created"] == {"assets": 1, "models": 1, "catalog": 1, "tires": 4, "measurements": 3}
+    assert r.json()["created"] == {"assets": 1, "models": 1, "catalog": 1, "tires": 4, "measurements": 3, "rims": 0}
     assert len(r.json()["part_ids"]) == 4
 
     ld30 = asset_id(client, manager, "LD-30")

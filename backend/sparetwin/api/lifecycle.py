@@ -26,6 +26,12 @@ class InstallIn(BaseModel):
     position: str = Field(min_length=1, max_length=40)
     hours: Decimal | None = Field(None, ge=0, description="Boşsa makinenin güncel saati")
     notes: str | None = Field(None, max_length=1000)
+    rim_id: UUID | None = Field(None, description="Lastikle birlikte takılacak stoktaki jant (pozisyon + '-J')")
+
+
+class MoveIn(BaseModel):
+    position: str = Field(min_length=1, max_length=40, description="Aynı makinede hedef pozisyon")
+    hours: Decimal | None = Field(None, ge=0)
 
 
 class RemoveIn(BaseModel):
@@ -71,17 +77,53 @@ def record_meter(asset_id: UUID, body: MeterIn, ctx: TenantCtx):
         ).fetchone()
 
 
-@router.post("/parts/{part_id}/install", summary="Parçayı makineye tak")
+@router.post("/parts/{part_id}/install", summary="Parçayı makineye tak (lastikse isteğe bağlı jantıyla birlikte)")
 def install(part_id: UUID, body: InstallIn, ctx: TenantCtx):
     ctx.require("technician")
-    with ctx.tx() as conn:
+    with ctx.tx() as conn:  # tek işlem: jant takılamazsa lastik de takılmaz
         _own_part(conn, part_id, ctx.tenant_id)
         _own_asset(conn, body.asset_id, ctx.tenant_id)
-        return conn.execute(
+        row = conn.execute(
             """select id, status, current_asset_id, current_position, installed_at_hours
                  from public.install_part_item(%s, %s, %s, %s, %s)""",
             [part_id, body.asset_id, body.position, body.hours, body.notes],
         ).fetchone()
+        if body.rim_id:
+            _own_part(conn, body.rim_id, ctx.tenant_id)
+            row["rim"] = conn.execute(
+                """select id, status, current_position from public.install_part_item(%s, %s, %s, %s, %s)""",
+                [body.rim_id, body.asset_id, f"{body.position}-J", body.hours, "Lastikle birlikte takıldı"],
+            ).fetchone()
+        return row
+
+
+@router.post("/parts/{part_id}/move", summary="Rotasyon: aynı makinede başka pozisyona taşı (doluysa yer değiştir)")
+def move(part_id: UUID, body: MoveIn, ctx: TenantCtx):
+    ctx.require("technician")
+    target = body.position.strip().upper()
+    with ctx.tx() as conn:
+        p = conn.execute(
+            """select id, status, current_asset_id, current_position from public.part_items
+                where id = %s and tenant_id = %s for update""", [part_id, ctx.tenant_id]).fetchone()
+        if not p:
+            raise HTTPException(404, "Parça bulunamadı")
+        if p["status"] != "installed":
+            raise HTTPException(422, "Yalnızca takılı bir parça taşınabilir")
+        if p["current_position"] == target:
+            raise HTTPException(422, "Parça zaten bu pozisyonda")
+        asset, source = p["current_asset_id"], p["current_position"]
+        other = conn.execute(
+            """select id from public.part_items where current_asset_id = %s and current_position = %s
+                 and status = 'installed' for update""", [asset, target]).fetchone()
+        # Önce ikisi de sökülür (saatleri birikir), sonra çapraz takılır. Kategori ve pozisyon
+        # kontrolleri install_part_item'da; uymazsa her şey geri alınır.
+        conn.execute("select 1 from public.remove_part_item(%s, 'rotation', 'in_stock', %s, null, 'Rotasyon')", [part_id, body.hours])
+        if other:
+            conn.execute("select 1 from public.remove_part_item(%s, 'rotation', 'in_stock', %s, null, 'Rotasyon')", [other["id"], body.hours])
+        conn.execute("select 1 from public.install_part_item(%s, %s, %s, %s, 'Rotasyon')", [part_id, asset, target, body.hours])
+        if other:
+            conn.execute("select 1 from public.install_part_item(%s, %s, %s, %s, 'Rotasyon')", [other["id"], asset, source, body.hours])
+        return {"moved": str(part_id), "from": source, "to": target, "swapped_with": str(other["id"]) if other else None}
 
 
 @router.post("/parts/{part_id}/remove", summary="Parçayı sök")

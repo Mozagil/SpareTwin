@@ -20,7 +20,8 @@ function FleetStrip({ assets, selected, onSelect }: {
             ? <span className="alert t-watch">{a.watch_parts} parça takipte</span>
             : <span className="alert t-ok">Sorun yok</span>;
         // Basit sağlık şeridi: kritik / takip / diğer
-        const ok = Math.max(a.installed_parts - a.critical_parts - a.watch_parts, 0);
+        const unknown = a.unknown_parts ?? 0;
+        const ok = Math.max(a.installed_parts - a.critical_parts - a.watch_parts - unknown, 0);
         return (
           <button key={a.id} className="unit" aria-pressed={a.id === selected} onClick={() => onSelect(a.id)}>
             <div className="row">
@@ -35,6 +36,7 @@ function FleetStrip({ assets, selected, onSelect }: {
               {Array.from({ length: a.critical_parts }, (_, i) => <i key={`c${i}`} className="pip" style={{ background: "var(--critical)" }} />)}
               {Array.from({ length: a.watch_parts }, (_, i) => <i key={`w${i}`} className="pip" style={{ background: "var(--watch)" }} />)}
               {Array.from({ length: ok }, (_, i) => <i key={`o${i}`} className="pip" style={{ background: "var(--ok)" }} />)}
+              {Array.from({ length: unknown }, (_, i) => <i key={`u${i}`} className="pip" style={{ background: "var(--line)" }} />)}
             </div>
             {alert}
           </button>
@@ -74,9 +76,9 @@ function Priorities() {
         key: `stock-${c.id}`,
         band: "watch" as const,
         what: `${c.name} stok seviyesi`,
-        why: `Depoda ${c.in_stock} adet var, kritik seviye ${c.min_stock}.`,
-        to: `/kayit?sekme=teslim&kalem=${c.id}`,
-        action: "Teslim al",
+        why: `Depoda ${num(c.in_stock)} ${c.unit ?? "adet"} var, kritik seviye ${c.min_stock}.`,
+        to: `/stok?kalem=${c.id}`,
+        action: "Stoğa git",
       }));
     return [...rows.slice(0, 2), ...low.slice(0, 2), ...rows.slice(2)].slice(0, 7);
   }, [crit.data, watch.data, catalog.data]);

@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router";
-import { useInstall, useLogEvent, useParts, usePart, usePartEvents, useRemove, useWear } from "../api/hooks";
+import { useAsset, useInstall, useLogEvent, useMove, useParts, usePart, usePartEvents, useRemove, useWear } from "../api/hooks";
 import type { Position } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import {
@@ -11,17 +11,20 @@ import { WearChart } from "./WearChart";
 import { BandChip, ErrorNote, Field, Loading, Modal } from "./ui";
 
 // ---------- Takma ----------
-export function InstallModal({ assetId, assetCode, position, onClose }: {
-  assetId: string; assetCode: string; position: Position; onClose: () => void;
+export function InstallModal({ assetId, assetCode, position, rimSlot, onClose }: {
+  assetId: string; assetCode: string; position: Position; rimSlot?: Position; onClose: () => void;
 }) {
   const stock = useParts({ status: "in_stock", category: position.category_code, limit: 200 });
+  const offerRim = position.category_code === "tire" && !!rimSlot && !rimSlot.part_item_id;
+  const rims = useParts({ status: "in_stock", category: "rim", limit: 200 });
   const install = useInstall();
   const [partId, setPartId] = useState("");
+  const [rimId, setRimId] = useState("");
   const [notes, setNotes] = useState("");
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    install.mutate({ partId, asset_id: assetId, position: position.code, notes }, { onSuccess: onClose });
+    install.mutate({ partId, asset_id: assetId, position: position.code, notes, rim_id: offerRim ? rimId : null }, { onSuccess: onClose });
   };
   return (
     <Modal title={`${assetCode} · ${position.label}: parça tak`} onClose={onClose}
@@ -47,10 +50,64 @@ export function InstallModal({ assetId, assetCode, position, onClose }: {
             </select>
           </Field>
         )}
+        {offerRim && (
+          <Field label="Jant (isteğe bağlı)"
+                 hint={`${rimSlot!.code} pozisyonunda kayıtlı jant yok. Lastikle birlikte takılan jantı seçin; muayenesi takip edilir.`}>
+            <select value={rimId} onChange={(e) => setRimId(e.target.value)}>
+              <option value="">Jantı şimdi kaydetme</option>
+              {rims.data?.map((r) => <option key={r.id} value={r.id}>{r.part_name} · {r.serial_no ?? "seri no yok"}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Not" hint="İsteğe bağlı">
           <input value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} />
         </Field>
         <ErrorNote error={install.error} />
+      </form>
+    </Modal>
+  );
+}
+
+// ---------- Rotasyon ----------
+export function MoveModal({ partId, assetId, from, category, title, onClose }: {
+  partId: string; assetId: string; from: string; category: string; title: string; onClose: () => void;
+}) {
+  const asset = useAsset(assetId);
+  const move = useMove();
+  const [to, setTo] = useState("");
+  const targets = (asset.data?.positions ?? []).filter((p) => p.category_code === category && p.code !== from);
+  const chosen = targets.find((p) => p.code === to);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    move.mutate({ partId, position: to }, { onSuccess: onClose });
+  };
+  return (
+    <Modal title={`${title}: yer değiştir`} onClose={onClose}
+      footer={<>
+        <button className="btn btn-ghost" onClick={onClose}>Vazgeç</button>
+        <button className="btn btn-primary" form="move-form" disabled={!to || move.isPending}>
+          {chosen?.part_item_id ? "Yer değiştir" : "Taşı"}
+        </button>
+      </>}>
+      <form id="move-form" className="form" onSubmit={submit}>
+        {asset.isLoading ? <Loading /> : (
+          <Field label="Hedef pozisyon">
+            <select value={to} onChange={(e) => setTo(e.target.value)} required>
+              <option value="">Seçin</option>
+              {targets.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.code} · {p.label} · {p.part_item_id ? `${p.serial_no ?? "dolu"} ile yer değiştirir` : "boş"}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <p className="muted small">
+          {chosen?.part_item_id
+            ? `İki parça yer değiştirir. Çalışma saatleri ve geçmişleri korunur; olay kaydına "rotasyon" yazılır.`
+            : "Parça seçilen pozisyona taşınır. Çalışma saati ve geçmişi korunur."}
+        </p>
+        <ErrorNote error={move.error} />
       </form>
     </Modal>
   );
@@ -148,7 +205,7 @@ export function PartTwin({ partId, compact = false }: { partId: string; compact?
   const isTire = part.data?.category_code === "tire";
   const wear = useWear(partId, isTire);
   const events = usePartEvents(partId);
-  const [modal, setModal] = useState<"remove" | "event" | null>(null);
+  const [modal, setModal] = useState<"remove" | "event" | "move" | "rim" | null>(null);
 
   if (part.isLoading) return <Loading />;
   if (part.error) return <ErrorNote error={part.error} />;
@@ -212,6 +269,42 @@ export function PartTwin({ partId, compact = false }: { partId: string; compact?
       )}
       {verdict && <p className="verdict" style={{ ["--c" as string]: `var(--${p.band})` }}>{verdict}</p>}
 
+      {isTire && p.rim_slot && (
+        <div className={`pair ${p.mounted_rim ? `pair-${p.mounted_rim.compliance}` : "pair-missing"}`}>
+          <div className="pair-label">Jant · {p.rim_slot}</div>
+          {p.mounted_rim ? (
+            <>
+              <div><Link to={`/parca/${p.mounted_rim.id}`} className="pair-main">{p.mounted_rim.serial_no ?? "seri no yok"}</Link>
+                <span className="muted small"> · {p.mounted_rim.part_name}</span></div>
+              <div className="small">
+                {p.mounted_rim.compliance === "overdue" ? (
+                  <strong className="t-critical">Muayene gecikti{p.mounted_rim.hours_to_due != null ? ` (${num(-p.mounted_rim.hours_to_due)} sa)` : ""}</strong>
+                ) : p.mounted_rim.compliance === "due_soon" ? (
+                  <strong className="t-watch">Muayene yaklaşıyor · {num(p.mounted_rim.hours_to_due)} sa kaldı</strong>
+                ) : p.mounted_rim.compliance === "ok" ? (
+                  <span className="t-ok">Muayene güncel · sıradakine {num(p.mounted_rim.hours_to_due)} sa</span>
+                ) : <span className="muted">Muayene takibi yok</span>}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="small"><strong className="t-watch">Jant kaydı yok:</strong> bu jantın muayenesi takip edilmiyor.</div>
+              {can("technician") && (
+                <button className="btn btn-small" onClick={() => setModal("rim")}>Jant tak</button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      {p.category_code === "rim" && p.mounted_tire && (
+        <div className="pair">
+          <div className="pair-label">Üzerindeki lastik</div>
+          <div><Link to={`/parca/${p.mounted_tire.id}`} className="pair-main">{p.mounted_tire.serial_no ?? "seri no yok"}</Link>
+            <span className="muted small"> · {p.mounted_tire.part_name} </span>
+            <BandChip band={p.mounted_tire.band}>{p.mounted_tire.band === "unknown" ? "Ölçüm bekliyor" : pct(p.mounted_tire.condition_pct)}</BandChip></div>
+        </div>
+      )}
+
       <PhotoStrip photos={p.photos} title={title} />
 
       {!compact && Object.keys(p.latest_measurements ?? {}).length > 0 && (
@@ -243,11 +336,24 @@ export function PartTwin({ partId, compact = false }: { partId: string; compact?
         {can("technician") && p.status === "installed" && (
           <button className="btn btn-primary" onClick={() => setModal("remove")}>Sökmeyi kaydet</button>
         )}
+        {can("technician") && p.status === "installed" && p.category_code === "tire" && (
+          <button className="btn btn-ghost" onClick={() => setModal("move")}>Yer değiştir</button>
+        )}
         {can("technician") && (
           <button className="btn btn-ghost" onClick={() => setModal("event")}>Kayıt ekle</button>
         )}
       </div>
       {modal === "remove" && <RemoveModal partId={p.id} title={title} onClose={() => setModal(null)} />}
+      {modal === "rim" && p.current_asset_id && p.rim_slot && (
+        <InstallModal assetId={p.current_asset_id} assetCode={p.asset_code ?? ""} onClose={() => setModal(null)}
+          position={{ code: p.rim_slot, label: `${p.current_position} jantı`, category_code: "rim", axle: null, x: null, y: null,
+                      part_item_id: null, part_name: null, serial_no: null, condition_pct: null, band: "empty",
+                      projected_hours_left: null, hours_total: null }} />
+      )}
+      {modal === "move" && p.current_asset_id && p.current_position && (
+        <MoveModal partId={p.id} assetId={p.current_asset_id} from={p.current_position} category={p.category_code}
+                   title={title} onClose={() => setModal(null)} />
+      )}
       {modal === "event" && (
         <EventModal partId={p.id} title={title} isRim={p.category_code === "rim"} onClose={() => setModal(null)} />
       )}

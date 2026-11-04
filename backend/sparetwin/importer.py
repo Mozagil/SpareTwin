@@ -56,6 +56,11 @@ COLUMNS: list[Col] = [
         ("diş derinliği", "dis derinligi", "son diş", "kalan diş", "tread")),
     Col("measured_at", "Ölçüm tarihi", False, "Son ölçümün tarihi (GG.AA.YYYY). Boşsa bugün.", "15.10.2026", ("tarih", "ölçüm tarih")),
     Col("cost", "Alış fiyatı", False, "Birim fiyat ($). Boşsa katalog fiyatı.", "9800", ("fiyat", "maliyet", "tutar")),
+    Col("rim_serial", "Jant seri no", False, "Lastiğin takılı olduğu jant. Stoktaysa o jant takılır; sistemde yoksa Jant ebadı ile oluşturulur.", "TR25-2001",
+        ("jant", "jant no", "jant seri", "jant seri numarası")),
+    Col("rim_size", "Jant ebadı", False, "Yalnızca jant sistemde yoksa: ör. 25x25.00/3.5.", "25x25.00/3.5", ("jant ebati", "jant boyu")),
+    Col("rim_ndt_hours", "Jant NDT periyodu (saat)", False, "Yalnızca yeni jant tipi için: tahribatsız muayene periyodu. Boşsa muayene takibi yapılmaz.", "4000",
+        ("ndt", "ndt periyodu", "muayene periyodu")),
     Col("asset_manufacturer", "Makine markası", False, "Yalnızca makine sistemde yoksa: üretici.", "Volvo", ("makine üreticisi",)),
     Col("asset_model", "Makine modeli", False, "Yalnızca makine sistemde yoksa: model.", "L220H", ()),
     Col("asset_type", "Makine tipi", False, "Yalnızca makine sistemde yoksa: yükleyici, reach stacker veya forklift.", "yükleyici", ("makine türü",)),
@@ -258,6 +263,13 @@ class Context:
             """select lower(pi.serial_no) as s from public.part_items pi
                  join public.parts p on p.id = pi.part_id join public.part_categories pc on pc.id = p.category_id
                 where pi.tenant_id = %s and pc.code = 'tire' and pi.serial_no is not null""", [tenant_id]).fetchall()}
+        self.rims = {r["s"]: r for r in conn.execute(
+            """select lower(pi.serial_no) as s, pi.id, pi.status::text as status from public.part_items pi
+                 join public.parts p on p.id = pi.part_id join public.part_categories pc on pc.id = p.category_id
+                where pi.tenant_id = %s and pc.code = 'rim' and pi.serial_no is not null""", [tenant_id]).fetchall()}
+        self.rim_catalog = {r["size"].lower(): r for r in conn.execute(
+            """select p.id, rs.size, rs.ndt_interval_hours from public.parts p join public.rim_specs rs on rs.part_id = p.id
+                where p.tenant_id = %s or p.tenant_id is null""", [tenant_id]).fetchall()}
         self.occupied = {(r["current_asset_id"], r["current_position"]) for r in conn.execute(
             """select current_asset_id, current_position from public.part_items
                 where tenant_id = %s and status = 'installed'""", [tenant_id]).fetchall()}
@@ -269,11 +281,13 @@ def validate(ctx: Context, raw_rows: list[dict[str, Any]]) -> list[Row]:
     new_catalog: dict[tuple[str, str], dict[str, Any]] = {}
     used_positions: dict[tuple[str, str], int] = {}  # (makine kodu, pozisyon) → satır
     used_serials: dict[str, int] = {}
+    used_rims: dict[str, int] = {}
+    new_rim_catalog: dict[str, dict[str, Any]] = {}
 
     for row in rows:
         d, E, W = row.data, row.errors, row.warnings
         num: dict[str, Decimal | None] = {}
-        for key in ("otd_mm", "scrap_mm", "installed_at_hours", "prev_hours", "tread_mm", "cost", "asset_hours"):
+        for key in ("otd_mm", "scrap_mm", "installed_at_hours", "prev_hours", "tread_mm", "cost", "asset_hours", "rim_ndt_hours"):
             try:
                 num[key] = parse_number(d.get(key))
                 if num[key] is not None and num[key] < 0:
@@ -398,6 +412,46 @@ def validate(ctx: Context, raw_rows: list[dict[str, Any]]) -> list[Row]:
         tread = num["tread_mm"]
         if tread is not None and otd is not None and tread > otd:
             E.append(f"Son diş derinliği ({tread}) orijinal diş derinliğinden ({otd}) büyük olamaz")
+        # --- Jant (isteğe bağlı) ---
+        rim_serial = str(d.get("rim_serial") or "").strip() or None
+        if rim_serial:
+            slot = f"{pos}-J"
+            if slots.get(slot) != "rim":
+                E.append(f"{code} makinesinde {slot} jant pozisyonu yok")
+            elif asset and (asset["id"], slot) in ctx.occupied:
+                E.append(f"{code} {slot} dolu: önce mevcut jantı sökün")
+            if rim_serial.lower() in used_rims:
+                E.append(f"Jant {rim_serial} dosyada iki kez var (satır {used_rims[rim_serial.lower()]})")
+            used_rims.setdefault(rim_serial.lower(), row.n)
+            existing = ctx.rims.get(rim_serial.lower())
+            rim_plan: dict[str, Any] = {"serial_no": rim_serial, "slot": slot}
+            if existing:
+                if existing["status"] != "in_stock":
+                    E.append(f"Jant {rim_serial} şu an stokta değil; yalnızca stoktaki jant takılabilir")
+                rim_plan["item_id"] = existing["id"]
+            else:
+                rsize = str(d.get("rim_size") or "").strip()
+                if not rsize:
+                    E.append(f"Jant {rim_serial} sistemde yok: Jant ebadı gerekli")
+                else:
+                    cat = ctx.rim_catalog.get(rsize.lower())
+                    nc = new_rim_catalog.get(rsize.lower())
+                    if cat:
+                        rim_plan["catalog_id"], ndt = cat["id"], cat["ndt_interval_hours"]
+                    elif nc:
+                        rim_plan["new_catalog"], ndt = nc, nc["ndt"]
+                    else:
+                        ndt = num["rim_ndt_hours"]
+                        nc = {"size": rsize, "ndt": ndt, "row": row.n}
+                        new_rim_catalog[rsize.lower()] = nc
+                        rim_plan["new_catalog"] = nc
+                        W.append(f"Yeni jant kalemi oluşturulacak: {rsize}")
+                    if ndt is None:
+                        W.append("Jant için NDT periyodu yok: muayene takibi yapılmayacak")
+                W.append("Jantın muayene geçmişi bilinmiyor; sayaç takıldığı saatten başlar. "
+                         "Son muayene biliniyorsa Jantlar sayfasından kaydedin.")
+            row.plan["rim"] = rim_plan
+
         row.plan["tire"] = {"serial_no": serial, "installed_at_hours": inst, "prev_hours": num["prev_hours"] or Decimal(0),
                             "tread_mm": tread, "measured_at": measured, "cost": num["cost"] if num["cost"] is not None else list_cost,
                             "position": pos}
@@ -414,6 +468,7 @@ def summarize(rows: list[Row]) -> dict[str, int]:
         "new_assets": sum(1 for r in ok if r.plan.get("asset", {}).get("existing") is False and "same_as_row" not in r.plan["asset"]),
         "new_catalog": sum(1 for r in ok if r.plan.get("catalog", {}).get("existing") is False and "same_as_row" not in r.plan["catalog"]),
         "with_tread": sum(1 for r in ok if r.plan.get("tire", {}).get("tread_mm") is not None),
+        "rims": sum(1 for r in ok if r.plan.get("rim")),
     }
 
 
@@ -424,7 +479,9 @@ def commit(conn: psycopg.Connection, tenant_id: UUID, user_id: UUID, rows: list[
 
     asset_ids: dict[str, UUID] = {}
     catalog_ids: dict[str, UUID] = {}
-    created = {"assets": 0, "models": 0, "catalog": 0, "tires": 0, "measurements": 0}
+    created = {"assets": 0, "models": 0, "catalog": 0, "tires": 0, "measurements": 0, "rims": 0}
+    rim_catalog_ids: dict[str, UUID] = {}
+    rim_cat = conn.execute("select id from public.part_categories where tenant_id is null and code = 'rim'").fetchone()["id"]
     part_ids: list[str] = []
     tire_cat = conn.execute("select id from public.part_categories where tenant_id is null and code = 'tire'").fetchone()["id"]
 
@@ -487,6 +544,35 @@ def commit(conn: psycopg.Connection, tenant_id: UUID, user_id: UUID, rows: list[
                    values (%s, %s, 'tread_depth_mm', %s, 'mm', 'import', %s, coalesce(%s::date::timestamptz, now()))""",
                 [tenant_id, item, t["tread_mm"], meter, t["measured_at"]])
             created["measurements"] += 1
+        # Jant
+        rp = row.plan.get("rim")
+        if rp:
+            rim_id = rp.get("item_id")
+            if not rim_id:
+                cid = rp.get("catalog_id")
+                if not cid:
+                    nc = rp["new_catalog"]
+                    cid = rim_catalog_ids.get(nc["size"].lower())
+                    if not cid:
+                        cid = conn.execute(
+                            """insert into public.parts (tenant_id, category_id, name, specs)
+                               values (%s, %s, %s, %s) returning id""",
+                            [tenant_id, rim_cat, f"{nc['size']} jant", Jsonb({})]).fetchone()["id"]
+                        conn.execute("insert into public.rim_specs (part_id, size, ndt_interval_hours) values (%s, %s, %s)",
+                                     [cid, nc["size"], nc["ndt"]])
+                        rim_catalog_ids[nc["size"].lower()] = cid
+                        created["catalog"] += 1
+                rim_id = conn.execute(
+                    """insert into public.part_items (tenant_id, part_id, serial_no, qr_code, status, acquired_at)
+                       values (%s, %s, %s, app.new_qr('ST-P-'), 'in_stock', current_date) returning id""",
+                    [tenant_id, cid, rp["serial_no"]]).fetchone()["id"]
+                conn.execute(
+                    """insert into public.part_events (tenant_id, part_item_id, event_type, part_hours, notes, performed_by)
+                       values (%s, %s, 'received', 0, 'Excel içe aktarma', %s)""", [tenant_id, rim_id, user_id])
+            conn.execute("select 1 from public.install_part_item(%s, %s, %s, %s, %s)",
+                         [rim_id, aid, rp["slot"], t["installed_at_hours"], "Excel içe aktarma"])
+            created["rims"] += 1
+            part_ids.append(str(rim_id))
     return {"created": created, "part_ids": part_ids}
 
 
@@ -503,14 +589,22 @@ def template_xlsx() -> bytes:
         cell.fill = req_fill if c.required else head_fill
         cell.alignment = Alignment(wrap_text=True, vertical="center")
         ws.column_dimensions[cell.column_letter].width = max(14, len(c.header) + 4)
+    # Örnekler sütun adıyla yazılır: sütun eklenince/sırası değişince kaymaz
     examples = [
-        ["LD-20", "A1-L", "29.5R25", "Michelin", "radyal", 55, 8, "MX29-1001", 11800, 0, 41, "15.10.2026", 9800, "Volvo", "L220H", "yükleyici", 12500],
-        ["LD-20", "A1-R", "29.5R25", "Michelin", None, None, None, "MX29-1002", 11800, 0, 40.5, "15.10.2026", None, None, None, None, None],
-        ["LD-20", "A2-L", "29.5R25", "Michelin", None, None, None, "MX29-1003", 9600, 1200, 22, "15.10.2026", None, None, None, None, None],
+        {"asset_code": "LD-20", "position": "A1-L", "size": "29.5R25", "brand": "Michelin", "construction": "radyal",
+         "otd_mm": 55, "scrap_mm": 8, "serial_no": "MX29-1001", "installed_at_hours": 11800, "prev_hours": 0,
+         "tread_mm": 41, "measured_at": "15.10.2026", "cost": 9800, "rim_serial": "TR25-2001",
+         "rim_size": "25x25.00/3.5", "rim_ndt_hours": 4000, "asset_manufacturer": "Volvo", "asset_model": "L220H",
+         "asset_type": "yükleyici", "asset_hours": 12500},
+        {"asset_code": "LD-20", "position": "A1-R", "size": "29.5R25", "brand": "Michelin", "serial_no": "MX29-1002",
+         "installed_at_hours": 11800, "prev_hours": 0, "tread_mm": 40.5, "measured_at": "15.10.2026",
+         "rim_serial": "TR25-2002", "rim_size": "25x25.00/3.5"},
+        {"asset_code": "LD-20", "position": "A2-L", "size": "29.5R25", "brand": "Michelin", "serial_no": "MX29-1003",
+         "installed_at_hours": 9600, "prev_hours": 1200, "tread_mm": 22, "measured_at": "15.10.2026"},
     ]
     for i, ex in enumerate(examples, start=2):
-        for j, v in enumerate(ex, start=1):
-            ws.cell(row=i, column=j, value=v)
+        for j, c in enumerate(COLUMNS, start=1):
+            ws.cell(row=i, column=j, value=ex.get(c.key))
     ws.row_dimensions[1].height = 34
     ws.freeze_panes = "A2"
     yapi = DataValidation(type="list", formula1='"radyal,diyagonal,dolgu"', allow_blank=True)

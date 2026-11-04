@@ -107,10 +107,8 @@ def gather(conn: psycopg.Connection, storage: Storage, tenant_id: UUID, user_id:
              from public.assets a join public.v_tire_health th on th.current_asset_id = a.id and th.status = 'installed'
             where a.id = any(%s) group by a.code order by cph desc nulls last""", [ids]).fetchall()
     stock = conn.execute(
-        """select p.name, p.min_stock,
-                  (select count(*) from public.part_items pi where pi.part_id = p.id and pi.tenant_id = %(t)s
-                     and pi.status = 'in_stock') as in_stock
-             from public.parts p where (p.tenant_id = %(t)s or p.tenant_id is null) and p.min_stock > 0""", f).fetchall()
+        """select name, min_stock, qty as in_stock, unit from public.v_stock_totals
+            where tenant_id = %(t)s and min_stock > 0""", f).fetchall()
     # Jantlar: tek makine raporunda o makinedekiler; filo raporunda takılı olanlar + stoktakiler
     rims = conn.execute(
         """select r.serial_no, r.asset_code, r.current_position, r.compliance, r.hours_since_ndt, r.ndt_interval_hours
@@ -346,8 +344,9 @@ def render(d: dict[str, Any]) -> bytes:
         story += [KeepTogether([Paragraph("Jant muayenesi (NDT)", st["h2"]), _table(rows, [W * x for x in (.2, .25, .2, .35)])])]
     if d["stock"] and not d["single"]:
         rows = [["Katalog kalemi", "Depoda", "Kritik seviye"]]
-        rows += [[Paragraph(s["name"], st["cell"]), Paragraph(_band("watch", str(s["in_stock"])), st["cellr"]),
-                  Paragraph(str(s["min_stock"]), st["cellr"])] for s in d["stock"]]
+        rows += [[Paragraph(s["name"], st["cell"]),
+                  Paragraph(_band("watch", f"{_n(s['in_stock'], 0 if float(s['in_stock']).is_integer() else 1)} {s['unit']}"), st["cellr"]),
+                  Paragraph(f"{s['min_stock']} {s['unit']}", st["cellr"])] for s in d["stock"]]
         story += [KeepTogether([Paragraph("Stok uyarıları", st["h2"]), _table(rows, [W * .6, W * .2, W * .2])])]
 
     # Fotoğraflar

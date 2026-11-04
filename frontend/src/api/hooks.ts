@@ -7,7 +7,11 @@ import type {
   CatalogPart,
   Category,
   InspectionSummary,
+  Notification,
   QcFlag,
+  RimRow,
+  StockMovement,
+  StockRow,
   Sheet,
   PartDetail,
   PartEvent,
@@ -68,7 +72,7 @@ function useInvalidateFleet() {
   const qc = useQueryClient();
   return () =>
     Promise.all(
-      ["assets", "asset", "parts", "part", "tire-cost", "catalog-parts"].map((k) =>
+      ["assets", "asset", "parts", "part", "tire-cost", "catalog-parts", "rims", "notifications", "stock"].map((k) =>
         qc.invalidateQueries({ queryKey: [k] }),
       ),
     );
@@ -77,10 +81,10 @@ function useInvalidateFleet() {
 export function useInstall() {
   const done = useInvalidateFleet();
   return useMutation({
-    mutationFn: (v: { partId: string; asset_id: string; position: string; notes?: string }) =>
+    mutationFn: (v: { partId: string; asset_id: string; position: string; notes?: string; rim_id?: string | null }) =>
       api(`/parts/${v.partId}/install`, {
         method: "POST",
-        body: { asset_id: v.asset_id, position: v.position, notes: v.notes || null },
+        body: { asset_id: v.asset_id, position: v.position, notes: v.notes || null, rim_id: v.rim_id || null },
       }),
     onSuccess: done,
   });
@@ -94,6 +98,15 @@ export function useRemove() {
         method: "POST",
         body: { reason: v.reason, next_status: v.next_status, cost: v.cost ?? null, notes: v.notes || null },
       }),
+    onSuccess: done,
+  });
+}
+
+export function useMove() {
+  const done = useInvalidateFleet();
+  return useMutation({
+    mutationFn: (v: { partId: string; position: string }) =>
+      api<{ from: string; to: string; swapped_with: string | null }>(`/parts/${v.partId}/move`, { method: "POST", body: { position: v.position } }),
     onSuccess: done,
   });
 }
@@ -193,5 +206,48 @@ export function useInspectionActions(id: string) {
       onSuccess: refreshAll,
     }),
     cancel: useMutation({ mutationFn: () => api(`/inspections/${id}/cancel`, { method: "POST" }), onSuccess: refreshAll }),
+  };
+}
+
+// ---------- Jantlar ve bildirimler ----------
+export const useRims = () => useQuery({ queryKey: ["rims"], queryFn: () => api<RimRow[]>("/rims/compliance") });
+
+export const useNotifications = () =>
+  useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => api<{ items: Notification[]; unread: number }>("/notifications"),
+    refetchInterval: 60_000, // dakikada bir tazele
+  });
+
+export function useMarkRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { keys?: string[]; all?: boolean }) => api("/notifications/read", { method: "POST", body: v }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
+// ---------- Stok ----------
+export const useStock = (f: { category?: string; below?: boolean; q?: string }) =>
+  useQuery({ queryKey: ["stock", f], queryFn: () => api<StockRow[]>("/stock", { query: { ...f, below: f.below || undefined } }) });
+
+export const useStockMovements = (partId: string | undefined) =>
+  useQuery({ queryKey: ["stock", "movements", partId], queryFn: () => api<StockMovement[]>(`/stock/${partId}/movements`), enabled: !!partId });
+
+export function useStockActions() {
+  const qc = useQueryClient();
+  const refresh = () => Promise.all(["stock", "catalog-parts", "notifications"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  return {
+    move: useMutation({
+      mutationFn: (b: { part_id: string; site_id: string | null; kind: "in" | "out" | "adjust"; qty: number;
+                        unit_cost?: number | null; asset_id?: string | null; reason?: string | null; ref?: string | null; notes?: string | null }) =>
+        api("/stock/movements", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
+    transfer: useMutation({
+      mutationFn: (b: { part_id: string; from_site_id: string | null; to_site_id: string | null; qty: number; notes?: string | null }) =>
+        api("/stock/transfer", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
   };
 }

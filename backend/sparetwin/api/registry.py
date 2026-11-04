@@ -127,6 +127,7 @@ class CatalogPartIn(BaseModel):
     part_no: str | None = Field(None, max_length=80)
     list_cost: Decimal | None = Field(None, ge=0)
     min_stock: int = Field(0, ge=0)
+    unit: Literal["adet", "litre", "kg", "metre", "takım"] = "adet"
     expected_life_hours: Decimal | None = Field(None, gt=0, description="Lastik dışı parçalarda ömür hesabı için")
     tire: TireSpecIn | None = None
     rim: RimSpecIn | None = None
@@ -136,11 +137,11 @@ class CatalogPartIn(BaseModel):
 def list_catalog_parts(ctx: TenantCtx, storage: AppStorage, category: str | None = None):
     with ctx.tx() as conn:
         rows = conn.execute(
-            """select p.id, p.name, p.manufacturer, p.part_no, p.list_cost, p.min_stock, p.specs,
-                      pc.code as category_code, pc.name as category_name,
+            """select p.id, p.name, p.manufacturer, p.part_no, p.list_cost, p.min_stock, p.specs, p.unit,
+                      pc.code as category_code, pc.name as category_name, pc.is_serialized,
                       ts.size as tire_size, ts.construction as tire_construction,
-                      (select count(*) from public.part_items pi
-                        where pi.part_id = p.id and pi.tenant_id = %(t)s and pi.status = 'in_stock') as in_stock,
+                      coalesce((select st.qty from public.v_stock_totals st
+                        where st.part_id = p.id and st.tenant_id = %(t)s), 0) as in_stock,
                       (select count(*) from public.part_items pi
                         where pi.part_id = p.id and pi.tenant_id = %(t)s and pi.status = 'installed') as installed,
                       img.storage_key as img_key, img.mime_type as img_mime
@@ -185,11 +186,11 @@ def create_catalog_part(body: CatalogPartIn, ctx: TenantCtx):
         from psycopg.types.json import Jsonb
 
         part = conn.execute(
-            """insert into public.parts (tenant_id, category_id, manufacturer, part_no, name, specs, list_cost, min_stock)
-               values (%s, %s, %s, %s, %s, %s, %s, %s)
-               returning id, name, manufacturer, part_no, list_cost, min_stock, specs""",
+            """insert into public.parts (tenant_id, category_id, manufacturer, part_no, name, specs, list_cost, min_stock, unit)
+               values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+               returning id, name, manufacturer, part_no, list_cost, min_stock, specs, unit""",
             [ctx.tenant_id, cat["id"], body.manufacturer, body.part_no, body.name, Jsonb(specs),
-             body.list_cost, body.min_stock],
+             body.list_cost, body.min_stock, body.unit],
         ).fetchone()
         if body.tire:
             t = body.tire
@@ -301,11 +302,15 @@ def receive_parts(body: ReceiveIn, ctx: TenantCtx):
         raise HTTPException(422, "Aynı seri numarası listede birden fazla kez var")
     with ctx.tx() as conn:
         part = conn.execute(
-            "select id, list_cost from public.parts where id = %s and (tenant_id is null or tenant_id = %s)",
+            """select p.id, p.list_cost, pc.is_serialized from public.parts p
+                 join public.part_categories pc on pc.id = p.category_id
+                where p.id = %s and (p.tenant_id is null or p.tenant_id = %s)""",
             [body.part_id, ctx.tenant_id],
         ).fetchone()
         if not part:
             raise HTTPException(404, "Katalog kalemi bulunamadı")
+        if not part["is_serialized"]:
+            raise HTTPException(422, "Bu kalem adet/miktar ile izlenir; stoğa Stok sayfasından 'Giriş' ile girin")
         _check_site(conn, body.site_id, ctx.tenant_id)
         cost = body.purchase_cost if body.purchase_cost is not None else part["list_cost"]
         created = []

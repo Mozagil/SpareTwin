@@ -37,6 +37,8 @@ export const CATEGORY_LABEL: Record<string, string> = {
   hyd_pump: "Hidrolik pompa",
   battery: "Akü",
   filter: "Filtre",
+  lubricant: "Yağ ve gres",
+  seal_kit: "Keçe / conta takımı",
 };
 export const categoryLabel = (code: string) => CATEGORY_LABEL[code] ?? code;
 

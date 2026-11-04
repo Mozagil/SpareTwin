@@ -1,6 +1,6 @@
 [project]
 name = "sparetwin"
-version = "0.8.0"
+version = "1.1.0"
 description = "SpareTwin API — dijital parça ikizi platformu"
 requires-python = ">=3.12,<3.14"
 dependencies = [

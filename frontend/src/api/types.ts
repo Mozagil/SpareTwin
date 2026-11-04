@@ -59,6 +59,7 @@ export interface AssetSummary {
   watch_parts: number;
   worst_condition_pct: number | null;
   last_inspection_at: string | null;
+  unknown_parts: number;
   image: Img | null;
 }
 
@@ -155,6 +156,12 @@ export interface PartDetail {
   rim: RimInfo | null;
   image: Img | null;
   photos: Photo[];
+  rim_slot: string | null;
+  mounted_rim: {
+    id: string; serial_no: string | null; part_name: string; compliance: RimRow["compliance"];
+    hours_since_ndt: number; ndt_interval_hours: number | null; hours_to_due: number | null;
+  } | null;
+  mounted_tire: { id: string; serial_no: string | null; part_name: string; condition_pct: number | null; band: Band } | null;
 }
 
 export interface PartEvent {
@@ -229,6 +236,8 @@ export interface CatalogPart {
   in_stock: number;
   installed: number;
   image: Img | null;
+  unit: Unit;
+  is_serialized: boolean;
 }
 
 export interface Category {
@@ -304,4 +313,68 @@ export interface InspectionSummary {
   completed_at: string | null;
   inspected_by_name: string | null;
   measured_parts: number;
+}
+
+// ---------- Jantlar ve bildirimler ----------
+export interface RimRow {
+  id: string;
+  serial_no: string | null;
+  part_name: string;
+  asset_id: string | null;
+  asset_code: string | null;
+  current_position: string | null;
+  hours_total: number;
+  ndt_interval_hours: number | null;
+  last_ndt_hours: number | null;
+  last_ndt_at: string | null;
+  hours_since_ndt: number;
+  hours_to_due: number | null;
+  compliance: "overdue" | "due_soon" | "ok" | "not_required";
+}
+
+export interface Notification {
+  key: string;
+  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing";
+  severity: "critical" | "watch";
+  title: string;
+  body: string;
+  link: { type: "part" | "rim" | "stock" | "asset"; id: string };
+  at: string | null;
+  read: boolean;
+}
+
+// ---------- Stok ----------
+export type Unit = "adet" | "litre" | "kg" | "metre" | "takım";
+
+export interface StockRow {
+  part_id: string;
+  name: string;
+  manufacturer: string | null;
+  part_no: string | null;
+  unit: Unit;
+  min_stock: number;
+  category_code: string;
+  category_name: string;
+  is_serialized: boolean;
+  qty: number;
+  value: number | null;
+  avg_cost: number | null;
+  below_min: boolean;
+  sites: { site_id: string | null; qty: number }[] | null;
+  used_90d: number;
+}
+
+export interface StockMovement {
+  id: number;
+  kind: "in" | "out" | "adjust" | "transfer_out" | "transfer_in";
+  qty: number;
+  unit_cost: number | null;
+  reason: string | null;
+  ref: string | null;
+  notes: string | null;
+  occurred_at: string;
+  site_name: string | null;
+  asset_code: string | null;
+  asset_id: string | null;
+  performed_by_name: string | null;
 }

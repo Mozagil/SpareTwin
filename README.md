@@ -18,7 +18,7 @@ Makine imalatçıları, üretim fabrikaları ve iş makinesi filoları için **d
 |---|---|
 | `frontend/` | React uygulaması: giriş, filo dashboard'u, makine ve parça sayfaları, kayıt, etiketler |
 | `backend/sparetwin/` | FastAPI: kimlik, kayıt, filo, yaşam döngüsü, inspeksiyon, dosyalar, QR etiket |
-| `backend/tests/` | 70 test: kimlik, firma izolasyonu, kayıt, Excel içe aktarma, PDF rapor, iş kuralları, kontrol formu, görseller ve gizlilik, etiket, S3, şema sıfırlama |
+| `backend/tests/` | 92 test: kimlik, firma izolasyonu, kayıt, Excel içe aktarma, PDF rapor, jant ve bildirimler, stok, iş kuralları, kontrol formu, görseller ve gizlilik, etiket, S3, şema sıfırlama |
 | `db/migrations/` | Şema, RLS, iş kuralları, TireIQ modülü, kimlik fonksiyonları |
 | `db/seed/demo.sql` | Demo firma: 4 makine, 29 takılı parça, ölçüm geçmişi |
 | `deploy/` | Canlı ortam paketi (şimdilik kullanılmıyor) |
@@ -32,7 +32,7 @@ Codespace iki container ile açılır: Python 3.12 + Node 22 çalışma ortamı 
 ```bash
 make reset   # şemayı kur + demo veri
 make dev     # API + uygulama birlikte → Ports sekmesinde 5173'ü aç
-make test    # 70 backend + 22 frontend testi
+make test    # 92 backend + 23 frontend testi
 ```
 
 Demo giriş bilgileri (yalnızca geliştirme):
@@ -59,6 +59,7 @@ Adres HTTPS olduğu için kamera çalışır; portu herkese açmaya gerek yoktur
 | Mesaj | Çözüm |
 |---|---|
 | `Python paketleri kurulu değil` / `Frontend paketleri kurulu değil` | `make setup` |
+| Terminaldeki `http://localhost:5173` bağlantısı açılmıyor | O adres Codespace'in içini gösterir. Ports sekmesinde 5173 satırındaki 🌐 simgesine tıkla; 5173 listede yoksa **Add Port** → `5173` |
 | `Port dolu: [5173, 8000]` | Arka planda eski sunucu kalmış: `make stop`, sonra `make dev` |
 | Girişte "Sunucuya ulaşılamıyor" | API çalışmıyor: `make stop`, sonra `make dev` |
 | Tarayıcı konsolunda `github.dev/pf-signin` uyarısı | Uygulamayı VS Code içindeki önizlemede değil, Ports sekmesindeki 🌐 simgesiyle ayrı sekmede aç |
@@ -79,4 +80,4 @@ Bir dosyanın silinmesi gerekiyorsa zip'in yanında not olarak belirtilir. `.dev
 
 ## Şu anki durum
 
-Faz 0 tamamlandı. Faz 1 (TireIQ MVP) sürüyor: görseller, mobil kontrol formu, Excel ile toplu içe aktarma ve PDF rapor hazır; sırada jant uyumluluk ekranı ve bildirimler. Ayrıntı: `docs/04-yol-haritasi.md`.
+Faz 0 tamamlandı. Faz 1 (TireIQ MVP) yazılım tarafı tamamlandı (v1.0): görseller, mobil kontrol formu, Excel ile toplu içe aktarma, PDF rapor, jant uyumluluğu (lastikle birlikte takma, Excel), rotasyon ve uygulama içi bildirimler. Faz 2 başladı: depo ve stok hazır; sırada satınalma (tedarikçi, talep, sipariş, teslim alma). Ayrıntı: `docs/04-yol-haritasi.md`.

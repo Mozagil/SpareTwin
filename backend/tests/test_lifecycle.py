@@ -12,7 +12,8 @@ def test_filo_ozeti(client, manager):
 def test_makine_semasi_bos_ve_dolu_pozisyonlarla(client, manager):
     a = client.get(f"/assets/{asset_id(client, manager, 'LD-07')}", headers=manager).json()
     pos = {p["code"]: p for p in a["positions"]}
-    assert len(pos) == 8
+    assert len(pos) == 12  # 4 lastik + 4 jant + 3 silindir + pompa
+    assert pos["A1-L-J"]["category_code"] == "rim" and pos["A1-L-J"]["x"] is None  # jant şemada çizilmez
     assert pos["A2-L"]["band"] == "critical"
     assert float(pos["A2-L"]["condition_pct"]) == 12.8
     assert pos["A1-L"]["x"] is not None
@@ -93,8 +94,8 @@ def test_jant_ndt_kaydi(client, tech):
     rim = part_id(client, tech, "TR25-0107")
     r = client.post(f"/parts/{rim}/events", headers=tech, json={"event": "inspected", "reason": "ndt"})
     assert r.status_code == 200, r.text
-    rows = client.get("/rims/compliance", headers=tech).json()
-    assert rows[0]["compliance"] == "ok"
+    rows = {r["serial_no"]: r for r in client.get("/rims/compliance", headers=tech).json()}
+    assert rows["TR25-0107"]["compliance"] == "ok" and rows["TR25-0107"]["last_ndt_at"]
 
 
 def test_takma_sokme_olay_ile_yapilamaz(client, tech):

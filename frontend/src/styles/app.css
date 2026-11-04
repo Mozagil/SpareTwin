@@ -220,7 +220,8 @@ main { padding: 20px clamp(14px, 3vw, 32px) 48px; }
 .row-actions { text-align: right; }
 .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
 .filters .spacer { flex: 1; }
-.filters input[type="search"] { min-width: 220px; }
+.filters input[type="search"] { min-width: 220px; flex: 1 1 260px; width: auto; }
+.filters select { width: auto; min-width: 170px; }
 
 /* ---------- Form ---------- */
 .form { display: grid; gap: 14px; }
@@ -288,6 +289,44 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); out
 .lightbox-nav { border: 0; background: rgb(255 255 255 / .1); color: #fff; font-size: 34px; width: 44px; height: 64px;
   border-radius: 10px; cursor: pointer; justify-self: center; }
 .lightbox-nav.prev { grid-column: 1; } .lightbox-nav.next { grid-column: 3; }
+
+/* ---------- Stok ---------- */
+.site-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg-wrap { flex-wrap: wrap; }
+.mini-head { font-size: 15px; margin: 6px 0 0; }
+.moves { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 280px; overflow: auto; }
+.moves li { display: grid; grid-template-columns: 96px 1fr; gap: 10px; font-size: 14px; padding: 6px 0; border-top: 1px solid var(--line); }
+.mv-qty { font-family: var(--font-cond); font-weight: 700; font-size: 16px; text-align: right; }
+.mv-qty.pos { color: var(--ok); } .mv-qty.neg { color: var(--critical); }
+
+/* ---------- Lastik ↔ jant kutusu ---------- */
+.pair { margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-s); background: var(--surface-2);
+  border-left: 4px solid var(--line); display: grid; gap: 4px; justify-items: start; }
+.pair-ok { border-left-color: var(--ok); }
+.pair-due_soon, .pair-missing { border-left-color: var(--watch); }
+.pair-overdue { border-left-color: var(--critical); }
+.pair-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+.pair-main { font-family: var(--font-cond); font-weight: 700; font-size: 17px; }
+
+/* ---------- Bildirimler ---------- */
+.bell { position: relative; }
+.bell-btn { position: relative; padding: 8px 11px; }
+.bell-count { position: absolute; top: -4px; right: -4px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px;
+  background: var(--critical); color: #fff; font-size: 11.5px; font-weight: 700; display: grid; place-items: center; }
+.bell-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: min(400px, calc(100vw - 24px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-l); box-shadow: 0 16px 40px rgb(0 0 0 / .2);
+  max-height: 70vh; display: flex; flex-direction: column; }
+.bell-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.bell-list { list-style: none; margin: 0; padding: 4px; overflow: auto; }
+.bell-item { width: 100%; display: grid; grid-template-columns: 5px 1fr 8px; gap: 10px; align-items: center; text-align: left;
+  border: 0; background: transparent; padding: 10px; border-radius: 10px; cursor: pointer; }
+.bell-item:hover { background: var(--surface-2); }
+.bell-item .sev { align-self: stretch; border-radius: 3px; background: var(--c); }
+.bell-item.read { opacity: .6; }
+.bell-title { display: block; font-weight: 600; font-size: 14px; }
+.bell-body { display: block; color: var(--muted); font-size: 13px; }
+.bell-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+.bell-empty { padding: 18px 14px; margin: 0; }
 
 /* ---------- Rapor düğmesi ---------- */
 .report-btn { display: inline-grid; gap: 4px; }
@@ -379,11 +418,14 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); out
   .rail { position: fixed; bottom: 0; top: auto; left: 0; right: 0; height: auto; flex-direction: row; justify-content: space-around;
           padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
   .rail .mark { display: none; }
+  .nav-item.desktop-only { display: none; }
   .search { min-width: 0; flex: 1 1 100%; order: 5; }
   .facts { grid-template-columns: 1fr 1fr; }
   .asset-head { flex-direction: column; align-items: stretch; }
   .insp-bar { top: 0; }
   .notice { top: 92px; }
+  /* Bildirim paneli: telefonda ekran genişliğinde (zil düğmesine hizalanınca soldan taşıyordu) */
+  .bell-panel { position: fixed; left: 10px; right: 10px; top: calc(56px + env(safe-area-inset-top, 0px)); width: auto; max-height: 75vh; }
   .head-actions { flex-wrap: wrap; }
   /* Alttaki menü çubuğu (≈64 px) formun düğmelerini kapatmasın */
   .editor-actions { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }

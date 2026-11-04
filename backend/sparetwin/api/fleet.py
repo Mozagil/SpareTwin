@@ -131,6 +131,29 @@ def get_part(part_id: UUID, ctx: TenantCtx, storage: AppStorage):
                  from public.v_tire_health where id = %s""",
             [part_id],
         ).fetchone()
+        # Lastik ↔ jant: aynı tekerlek pozisyonundaki eş parça (A1-L ↔ A1-L-J)
+        part["mounted_rim"] = part["mounted_tire"] = part["rim_slot"] = None
+        if part["status"] == "installed" and part["current_asset_id"]:
+            pos = part["current_position"]
+            if part["category_code"] == "tire":
+                slot = conn.execute(
+                    """select tp.code from public.assets a join public.asset_models am on am.id = a.model_id
+                         join public.template_positions tp on tp.template_id = am.template_id
+                        where a.id = %s and tp.code = %s and tp.category_code = 'rim'""",
+                    [part["current_asset_id"], f"{pos}-J"]).fetchone()
+                part["rim_slot"] = slot["code"] if slot else None
+                part["mounted_rim"] = conn.execute(
+                    """select r.id, r.serial_no, p.name as part_name, r.compliance, r.hours_since_ndt,
+                              r.ndt_interval_hours, r.ndt_interval_hours - r.hours_since_ndt as hours_to_due
+                         from public.v_rim_compliance r join public.part_items pi on pi.id = r.id
+                         join public.parts p on p.id = pi.part_id
+                        where pi.current_asset_id = %s and pi.current_position = %s and pi.status = 'installed'""",
+                    [part["current_asset_id"], f"{pos}-J"]).fetchone()
+            elif part["category_code"] == "rim" and pos.endswith("-J"):
+                part["mounted_tire"] = conn.execute(
+                    """select id, serial_no, part_name, condition_pct, band from public.v_part_health
+                        where current_asset_id = %s and current_position = %s and status = 'installed'""",
+                    [part["current_asset_id"], pos[:-2]]).fetchone()
         part["image"] = entity_image(conn, storage, ctx.tenant_id, "part", part["part_id"])
         part["photos"] = part_photos(conn, storage, ctx.tenant_id, part_id)
         part["rim"] = conn.execute(
@@ -249,8 +272,18 @@ def part_measurements(part_id: UUID, ctx: TenantCtx, metric: str | None = None):
 def rim_compliance(ctx: TenantCtx):
     with ctx.tx() as conn:
         return conn.execute(
-            """select * from public.v_rim_compliance where tenant_id = %s
-                order by case compliance when 'overdue' then 0 when 'due_soon' then 1 else 2 end""",
+            """select r.*, pi.current_asset_id as asset_id, p.name as part_name,
+                      r.ndt_interval_hours - r.hours_since_ndt as hours_to_due, ndt.last_ndt_at
+                 from public.v_rim_compliance r
+                 join public.part_items pi on pi.id = r.id
+                 join public.parts p on p.id = pi.part_id
+                 left join lateral (
+                   select max(e.occurred_at) as last_ndt_at from public.part_events e
+                    where e.part_item_id = r.id and e.event_type = 'inspected' and e.reason_code = 'ndt'
+                 ) ndt on true
+                where r.tenant_id = %s
+                order by case r.compliance when 'overdue' then 0 when 'due_soon' then 1 when 'ok' then 2 else 3 end,
+                         r.ndt_interval_hours - r.hours_since_ndt nulls last, r.asset_code nulls last, r.current_position""",
             [ctx.tenant_id],
         ).fetchall()
 

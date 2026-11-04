@@ -11,6 +11,8 @@ import { LoginPage, TenantPicker } from "./pages/LoginPage";
 import { PartPage } from "./pages/PartPage";
 import { PartsPage } from "./pages/PartsPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { RimsPage } from "./pages/RimsPage";
+import { StockPage } from "./pages/StockPage";
 
 export function App() {
   const { status, membership } = useAuth();
@@ -27,6 +29,8 @@ export function App() {
           <Route path="parcalar" element={<PartsPage />} />
           <Route path="kayit" element={<RegisterPage />} />
           <Route path="etiketler" element={<LabelsPage />} />
+          <Route path="jantlar" element={<RimsPage />} />
+          <Route path="stok" element={<StockPage />} />
           <Route path="kontrol" element={<InspectionStartPage />} />
           <Route path="kontrol/:id" element={<InspectionPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

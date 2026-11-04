@@ -169,3 +169,56 @@ insert into public.part_items (tenant_id, part_id, serial_no, qr_code, status, s
 insert into public.part_events (tenant_id, part_item_id, event_type, cost, reason_code, notes, occurred_at)
 select tenant_id, id, 'repaired', 650, 'seal_leak', 'Keçe takımı değişti', now() - interval '35 days'
   from public.part_items where serial_no = 'KB-450-0071';
+
+-- ---------- Jantlar (NDT muayene periyodu 4.000 saat) ----------
+-- Her durumdan bir örnek: gecikmiş, yaklaşan, güncel.
+create function pg_temp.seed_rim(p_asset text, p_pos text, p_serial text, p_ndt_part_hours numeric, p_days_ago int)
+returns void language plpgsql as $$
+declare
+  t   uuid := '11111111-1111-1111-1111-111111111111';
+  pid uuid;
+begin
+  pid := pg_temp.seed_item(p_asset, p_pos, '51111111-0000-0000-0000-000000000004', p_serial, 0, 0, 2600);
+  if p_ndt_part_hours is not null then
+    insert into public.part_events (tenant_id, part_item_id, event_type, reason_code, part_hours, notes, occurred_at)
+    values (t, pid, 'inspected', 'ndt', p_ndt_part_hours, 'NDT: çatlak bulunmadı', now() - make_interval(days => p_days_ago));
+  end if;
+end $$;
+
+select pg_temp.seed_rim('LD-07', 'A1-L-J', 'TR25-0151', null,  0);    -- hiç muayene yok → gecikmiş
+select pg_temp.seed_rim('LD-07', 'A1-R-J', 'TR25-0152', 8800,  210);  -- 3.680 saat önce → yaklaşıyor
+select pg_temp.seed_rim('LD-07', 'A2-L-J', 'TR25-0153', 11000, 70);   -- güncel
+select pg_temp.seed_rim('LD-07', 'A2-R-J', 'TR25-0154', 10500, 95);   -- güncel
+select pg_temp.seed_rim('LD-09', 'A1-L-J', 'TR25-0161', 3000,  150);
+select pg_temp.seed_rim('LD-09', 'A1-R-J', 'TR25-0162', 3000,  150);
+select pg_temp.seed_rim('LD-09', 'A2-L-J', 'TR25-0163', 3000,  150);
+select pg_temp.seed_rim('LD-09', 'A2-R-J', 'TR25-0164', 3000,  150);
+
+-- ---------- Sarf malzemeleri ve stok hareketleri (Faz 2) ----------
+insert into public.parts (id, tenant_id, category_id, manufacturer, part_no, name, specs, list_cost, min_stock, unit)
+select v.id::uuid, '11111111-1111-1111-1111-111111111111',
+       (select id from public.part_categories where tenant_id is null and code = v.cat),
+       v.mf, v.pn, v.nm, '{}'::jsonb, v.cost, v.min_stock, v.unit
+from (values
+  ('51111111-0000-0000-0000-000000000011', 'filter',    'Volvo',  'VOE-11110683', 'L220H hidrolik filtresi',  85.00, 6,   'adet'),
+  ('51111111-0000-0000-0000-000000000012', 'lubricant', 'Shell',  'RIMULA-R4-15W40', 'Motor yağı 15W-40',      4.20, 200, 'litre'),
+  ('51111111-0000-0000-0000-000000000013', 'seal_kit',  'Volvo',  'VOE-SK-LIFT220', 'L220H kaldırma silindiri keçe takımı', 340.00, 2, 'takım')
+) as v(id, cat, mf, pn, nm, cost, min_stock, unit);
+
+insert into public.stock_movements (tenant_id, part_id, site_id, kind, qty, unit_cost, asset_id, reason, ref, occurred_at)
+select '11111111-1111-1111-1111-111111111111', v.part::uuid, v.site::uuid, v.kind::app.stock_move_kind, v.qty, v.cost,
+       (select id from public.assets where code = v.asset), v.reason, v.ref, now() - make_interval(days => v.days)
+from (values
+  -- Soma deposu
+  ('51111111-0000-0000-0000-000000000011', '21111111-0000-0000-0000-000000000002', 'in',  12,   82.00, null,    'satınalma', 'IRS-2026-0811', 90),
+  ('51111111-0000-0000-0000-000000000011', '21111111-0000-0000-0000-000000000002', 'out', -4,   82.00, 'LD-07', 'periyodik bakım', null, 60),
+  ('51111111-0000-0000-0000-000000000011', '21111111-0000-0000-0000-000000000002', 'out', -4,   82.00, 'LD-09', 'periyodik bakım', null, 20),
+  ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000002', 'in',  400,  4.05,  null,    'satınalma', 'IRS-2026-0790', 100),
+  ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000002', 'out', -60,  4.05,  'LD-07', 'yağ değişimi', null, 60),
+  ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000002', 'out', -60,  4.05,  'LD-09', 'yağ değişimi', null, 20),
+  ('51111111-0000-0000-0000-000000000013', '21111111-0000-0000-0000-000000000002', 'in',  2,    340.00, null,   'satınalma', 'IRS-2026-0741', 120),
+  ('51111111-0000-0000-0000-000000000013', '21111111-0000-0000-0000-000000000002', 'out', -1,   340.00, 'LD-07', 'silindir tamiri', null, 35),
+  -- Ambarlı deposu
+  ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000001', 'in',  120,  4.30,  null,    'satınalma', 'IRS-2026-0802', 80),
+  ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000001', 'out', -40,  4.30,  'RS-02', 'yağ değişimi', null, 30)
+) as v(part, site, kind, qty, cost, asset, reason, ref, days);

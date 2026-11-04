@@ -69,14 +69,21 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 | ✅ **Mobil kontrol formu** (`/kontrol`) | Kamerayla QR okutma (Android ve iPhone), motor saati, pozisyon kartları, önceki ölçüm ipucu ve anlık aralık uyarısı, zorunlu fotoğraf yuvaları, "kaydet, sonraki", yarım kalan kontrole devam, 4 kalite kapısı, iptal |
 | ✅ Fotoğraf yükleme, sıkıştırma, zorunlu açılar | Telefonda 1600 px'e küçültülür, sunucuda GPS silinir |
 | ✅ Ölçümler yalnızca tamamlanan kontrolden sayılır | Taslak veya iptal edilmiş kontroldeki değer dashboard'u etkilemez (`0009`) |
-| Lastik ve jant yaşam döngüsü ekranları | Takma, sökme, rotasyon, tamir, kaplama, hurda |
-| Jant NDT uyumluluk takibi | `v_rim_compliance` |
-| Doğrusal aşınma ve kalan saat tahmini | `v_tire_health` |
-| Saat başı maliyet | Bugüne kadar ve ömür sonu beklenen |
+| ✅ Lastik ve jant yaşam döngüsü ekranları | Takma (lastik jantıyla birlikte, tek işlem), sökme (stoğa / tamire / kaplamaya / hurdaya), tek adımda rotasyon (doluysa yer değiştirir, saatler korunur), tamir, kaplamadan dönüş, NDT kaydı |
+| ✅ **Jant uyumluluğu** (`/jantlar`) | Her lastik pozisyonunun jant pozisyonu (`A1-L-J`), gecikmiş / yaklaşan / güncel listesi, tek tıkla "muayene yapıldı" kaydı (`0010`) |
+| ✅ Doğrusal aşınma ve kalan saat tahmini | `v_tire_health`; parça ikizinde grafik |
+| ✅ Saat başı maliyet | Bugüne kadar (parça ikizi) ve ömür sonu beklenen (dashboard, rapor) |
 | ✅ **Toplu içe aktarma (Excel/CSV)** | Şablon indirme, esnek sütun başlıkları, Türkçe sayı/tarih, önizleme (satır satır hata ve uyarı), ya hepsi ya hiçbiri, yeni makine ve katalog kalemi oluşturma, yeni lastiklerin etiketlerini yazdırma |
 | ✅ **PDF durum raporu** | Tüm filo veya tek makine: yönetici özeti, makineler, öncelikli işler, saat başı maliyet, jant muayenesi, stok uyarıları, tamamlanmış kontrollerin saha fotoğrafları. Türkçe karakterler için Barlow gömülü |
-| Basit bildirim | Kritik banda düşen parça, geciken NDT için e-posta |
-| Sökme sebep kodları kütüphanesi | Aşınma, kesik, darbe, ayrışma, basınç kaybı... |
+| ✅ **Uygulama içi bildirimler** | Üst çubukta zil: kritik parça, jant muayenesi, düşük stok, 30 gündür kontrol edilmeyen makine. Kişiye özel okundu bilgisi; durum değişince yeniden okunmamış olur. E-posta, sunucu aşamasında aynı listeye bağlanacak |
+| 🟡 Sökme sebep kodları | ✅ Sabit liste: aşınma, kesik, darbe, ayrışma, basınç kaybı, sızıntı, rotasyon, diğer. ⏳ Firmanın kendi sebeplerini ekleyebilmesi ve sebep bazlı rapor |
+
+| ✅ Excel'de jant sütunları | Jant seri no, ebat, NDT periyodu; stoktaki jant takılır, yoksa oluşturulur |
+| ✅ "Jant kaydı yok" bildirimi | Lastiği takılı ama jantı kaydedilmemiş pozisyonlar: muayene takibi yapılamadığı uyarısı |
+
+**Faz 1 yazılımı tamamlandı (v1.0).** Kalan tek kalem sökme sebeplerinin firmaya özel düzenlenmesi; Faz 3'teki ayarlar ekranına taşındı.
+
+**Pilot için gerekenler (yazılım dışı ve sunucu):** Sunucu ve alan adı, gerçek kullanıcı hesapları ve parola sıfırlama, e-posta bildirimleri, yedekleme. Bunlar Faz 3'teki "SaaS ürünleşme" maddeleriyle örtüşüyor; pilot öncesinde asgari kısmı öne çekilecek.
 
 **Pilot programı:** 2–3 firma, ücretsiz veya indirimli. İlk envanter girişini biz yapıyoruz (enTIRE "Bureau" modeli). Karşılığında aylık geri bildirim görüşmesi ve referans izni.
 
@@ -92,8 +99,8 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 |---|---|
 | Kategori ve ölçüm profili yönetim ekranı | Firma kendi parça tiplerini tanımlar |
 | Pozisyon şablonu düzenleyici | Firma kendi makine tipini çizer (sürükle-bırak x/y) |
-| Depo ve stok hareketleri | Seri olmayan sarf (filtre, yağ) miktar bazlı |
-| Kritik stok uyarısı ve yaklaşan değişime göre ihtiyaç | "LD-07 için 2 lastik yaklaşıyor, stokta 1 var" |
+| ✅ **Depo ve stok hareketleri** (`/stok`) | Sarf malzemeleri (filtre, yağ, keçe) adet/litre/takım ile: giriş, makineye çıkış, sayım düzeltmesi, depolar arası transfer. Seviye hareketlerden hesaplanır, defter değiştirilemez, eksi stok yok, ağırlıklı ortalama maliyet. Seri numaralı stok aynı ekranda (`0012`) |
+| 🟡 Kritik stok uyarısı ve yaklaşan değişime göre ihtiyaç | ✅ Kritik seviye uyarısı (bildirim, dashboard, rapor) sarf dahil. ⏳ "LD-07 için 2 lastik yaklaşıyor, stokta 1 var" önerisi satınalma adımıyla gelecek |
 | Tedarikçi, satınalma talebi, sipariş, teslim alma | KOBİ ERP planındaki satınalma modülünün sade hali |
 | Bakım planları | Saat veya takvim bazlı periyodik bakım |
 | Arıza ve duruş kaydı | Duruş süresi, sebep, ilgili parça |

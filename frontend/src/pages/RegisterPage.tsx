@@ -8,6 +8,8 @@ import { ImportPanel } from "./ImportPanel";
 import { CATEGORY_LABEL, LAYOUT_LABEL } from "../lib/format";
 
 const nOrNull = (v: string) => (v.trim() === "" ? null : Number(v));
+// Seri numarasıyla tek tek izlenen kategoriler; diğerleri (filtre, yağ, keçe) miktarla izlenir
+const SERIALIZED = new Set(["tire", "rim", "hyd_cylinder", "hyd_pump", "battery"]);
 const sOrNull = (v: string) => (v.trim() === "" ? null : v.trim());
 
 function Success({ children }: { children: ReactNode }) {
@@ -38,10 +40,10 @@ function ReceiveForm() {
   };
   return (
     <form className="form" onSubmit={submit}>
-      <Field label="Katalog kalemi" hint="Listede yoksa önce “Katalog kalemi” sekmesinden ekleyin">
+      <Field label="Katalog kalemi" hint="Seri numaralı parçalar. Filtre, yağ gibi sarf malzemeleri Stok sayfasından girilir.">
         <select value={partId} onChange={(e) => setPartId(e.target.value)} required>
           <option value="">Seçin</option>
-          {catalog.data?.map((c) => (
+          {catalog.data?.filter((c) => c.is_serialized).map((c) => (
             <option key={c.id} value={c.id}>
               {CATEGORY_LABEL[c.category_code] ?? c.category_code} · {c.name}{c.manufacturer ? ` (${c.manufacturer})` : ""} · stok {c.in_stock}
             </option>
@@ -132,7 +134,7 @@ function AssetForm() {
 function CatalogForm() {
   const create = useCreate<unknown, { id: string; name: string }>("/catalog/parts", ["catalog-parts"]);
   const [cat, setCat] = useState("tire");
-  const [f, setF] = useState({ name: "", manufacturer: "", part_no: "", list_cost: "", min_stock: "0", life: "" });
+  const [f, setF] = useState({ name: "", manufacturer: "", part_no: "", list_cost: "", min_stock: "0", life: "", unit: "adet" });
   const [t, setT] = useState({ size: "", construction: "radial", tra_code: "", otd_mm: "", scrap_tread_mm: "" });
   const [r, setR] = useState({ size: "", pieces: "", ndt_interval_hours: "" });
   const up = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
@@ -142,7 +144,7 @@ function CatalogForm() {
     create.mutate(
       {
         category_code: cat, name: f.name.trim(), manufacturer: sOrNull(f.manufacturer), part_no: sOrNull(f.part_no),
-        list_cost: nOrNull(f.list_cost), min_stock: Number(f.min_stock) || 0,
+        list_cost: nOrNull(f.list_cost), min_stock: Number(f.min_stock) || 0, unit: SERIALIZED.has(cat) ? "adet" : f.unit,
         expected_life_hours: cat !== "tire" ? nOrNull(f.life) : null,
         tire: cat === "tire" ? {
           size: t.size.trim(), construction: t.construction, tra_code: sOrNull(t.tra_code),
@@ -173,6 +175,13 @@ function CatalogForm() {
         <Field label="Liste fiyatı ($)"><input type="number" min={0} step="0.01" value={f.list_cost} onChange={up("list_cost")} /></Field>
         <Field label="Kritik stok seviyesi" hint="Altına düşünce uyarı"><input type="number" min={0} value={f.min_stock} onChange={up("min_stock")} /></Field>
       </div>
+      {!SERIALIZED.has(cat) && (
+        <Field label="Birim" hint="Bu kalem seri numarasıyla değil, miktarla izlenir (Stok sayfası)">
+          <select value={f.unit} onChange={up("unit")}>
+            {["adet", "litre", "kg", "metre", "takım"].map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </Field>
+      )}
       {cat === "tire" ? (
         <fieldset className="fieldset">
           <legend>Lastik bilgisi</legend>
@@ -194,11 +203,11 @@ function CatalogForm() {
             </Field>
           </div>
         </fieldset>
-      ) : (
+      ) : SERIALIZED.has(cat) ? (
         <Field label="Beklenen ömür (çalışma saati)" hint="Sağlık skoru bu değere göre hesaplanır">
           <input type="number" min={1} value={f.life} onChange={up("life")} />
         </Field>
-      )}
+      ) : null}
       {cat === "rim" && (
         <fieldset className="fieldset">
           <legend>Jant bilgisi</legend>

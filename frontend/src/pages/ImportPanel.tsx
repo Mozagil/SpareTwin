@@ -20,10 +20,10 @@ interface ImportRow {
   tread_mm: number | null;
 }
 interface ImportResult {
-  summary: { total: number; ok: number; warnings: number; errors: number; new_assets: number; new_catalog: number; with_tread: number };
+  summary: { total: number; ok: number; warnings: number; errors: number; new_assets: number; new_catalog: number; with_tread: number; rims: number };
   unknown_columns: string[];
   rows: ImportRow[];
-  created?: { assets: number; models: number; catalog: number; tires: number; measurements: number };
+  created?: { assets: number; models: number; catalog: number; tires: number; measurements: number; rims: number };
   part_ids?: string[];
 }
 
@@ -106,9 +106,9 @@ export function ImportPanel() {
       <div className="stack">
         <div className="success-note" role="status">
           <strong>{c.tires} lastik içe aktarıldı.</strong>{" "}
-          {[c.assets && `${c.assets} yeni makine`, c.catalog && `${c.catalog} yeni katalog kalemi`, c.measurements && `${c.measurements} ölçüm`]
+          {[c.assets && `${c.assets} yeni makine`, c.catalog && `${c.catalog} yeni katalog kalemi`, c.measurements && `${c.measurements} ölçüm`, c.rims && `${c.rims} jant`]
             .filter(Boolean).join(", ")}
-          {c.assets + c.catalog + c.measurements > 0 && " eklendi."}
+          {c.assets + c.catalog + c.measurements + c.rims > 0 && " eklendi."}
         </div>
         <div className="actions">
           <button className="btn btn-primary" disabled={labels.isPending} onClick={() =>
@@ -159,6 +159,7 @@ export function ImportPanel() {
             {s.new_assets > 0 && <span className="chip chip-plain">{s.new_assets} yeni makine</span>}
             {s.new_catalog > 0 && <span className="chip chip-plain">{s.new_catalog} yeni katalog kalemi</span>}
             <span className="chip chip-plain">{s.with_tread} ölçümlü</span>
+            {s.rims > 0 && <span className="chip chip-plain">{s.rims} jant</span>}
           </div>
           {preview!.unknown_columns.length > 0 && (
             <p className="muted small">Tanınmayan sütunlar yok sayıldı: {preview!.unknown_columns.join(", ")}</p>

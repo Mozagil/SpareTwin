@@ -5,7 +5,7 @@
 Platformun kalbi üç kavram:
 
 1. **Makine** (`assets`): Bir yükleyici, reach stacker, forklift, pres. Motor saati ve kilometresi var.
-2. **Pozisyon** (`template_positions`): Makine modelinde bir parçanın takılabileceği yuva. "Ön aks sol", "Kaldırma silindiri sağ", "Akü". Her pozisyon hangi kategoriden parça kabul ettiğini bilir.
+2. **Pozisyon** (`template_positions`): Makine modelinde bir parçanın takılabileceği yuva. "Ön aks sol", "Kaldırma silindiri sağ", "Akü". Her pozisyon hangi kategoriden parça kabul ettiğini bilir. Her lastik pozisyonunun bir de jant pozisyonu vardır (`A1-L` → `A1-L-J`); jantlar şemada çizilmez, tabloda ve jant ekranında görünür.
 3. **Parça ikizi** (`part_items`): Seri numaralı, QR etiketli tek bir fiziksel parça. QR kodu verilmezse otomatik atanır (`ST-P-` + 10 karakter; makinelerde `ST-A-`). Bir pozisyona takılır, sökülür, tamire gider, kaplanır, başka makineye geçer, hurdaya ayrılır. Her adım `part_events` defterine yazılır.
 
 Lastik bu modelde özel değil: `tire` kategorisinde bir parça. Diş derinliği bir ölçüm, kaplama bir olay. Bu sayede aynı ekranlar ve aynı kurallar hidrolik silindir için de çalışır.
@@ -51,6 +51,8 @@ erDiagram
 | `part_events` | Yaşam döngüsü defteri | Append-only. `part_hours` olay anındaki parça saati |
 | `inspections` | Saha kontrolü | `qc_flags` kalite kapısı sonuçları |
 | `measurements` | Ölçüm | Esnek: `metric` + `value` + `unit` + `source` |
+| `stock_movements` | Sarf malzemesi hareket defteri (giriş, çıkış, sayım, transfer) | Append-only; stok seviyesi `v_stock_levels` / `v_stock_totals` ile hareketlerden hesaplanır |
+| `notification_reads` | Kullanıcının okuduğu bildirim anahtarları | Bildirimler saklanmaz, her istekte güncel veriden üretilir |
 | `attachments` | Görsel, fotoğraf, doküman | `kind = 'image'`: katalog kalemi / makine modeli / makine görseli (firma başına bir tane). `kind = 'photo'`: inspeksiyon fotoğrafı, parça+açı başına bir tane. Dosya diskte veya S3'te |
 | `tire_specs`, `rim_specs` | TireIQ uzantıları | Orijinal diş derinliği, hurda sınırı, jant NDT periyodu |
 

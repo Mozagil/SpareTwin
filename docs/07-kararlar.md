@@ -162,3 +162,15 @@ Her önemli karar burada: ne seçildi, neden, neyi göze aldık. Bir karar deği
 **Dayanıklılık:** Sütun başlıkları esnek eşlenir ("Seri no", "Seri numarası", "Serial"), Türkçe ondalık ("12,5") ve tarih ("15.10.2026") okunur, Türkçe Windows Excel'in noktalı virgüllü CSV'si kabul edilir. Excel dosyaları `defusedxml` ile okunur (XML tabanlı saldırılara karşı).
 
 **Sınırlar:** Tek seferde 2.000 satır, 5 MB. Şimdilik yalnızca takılı lastikler; stoktaki lastikler ve diğer parça tipleri sonraki adımlarda.
+
+---
+
+## K-013 · Stok seviyesi hareketlerden hesaplanır
+
+**Tarih:** 4 Kasım 2026 · **Durum:** Kabul
+
+**Karar:** Sarf malzemeleri için ayrı bir "stok miktarı" alanı tutulmaz; seviye her zaman `stock_movements` defterinin toplamıdır. Defter değiştirilemez; sayım farkı yeni bir "sayım düzeltmesi" hareketiyle yazılır. Eksi stoğa düşülemez (aynı kalem+depo için hareketler sıraya girer). Çıkışlar ağırlıklı ortalama maliyetle yazılır ve makineye bağlanabilir.
+
+**Neden:** Miktar alanı ile hareket geçmişi zamanla çelişir ("sistemde 12 yazıyor ama hareketler 10 diyor"). Tek kaynak bu çelişkiyi imkânsız kılar ve her sayının nereden geldiği izlenebilir. Makineye bağlanan çıkışlar, toplam sahip olma maliyetinin (Faz 2 sonu) temelidir.
+
+**Seri numaralı parçalar:** Lastik, jant, silindir gibi parçalar zaten tek tek izleniyor; stoktakiler aynı görünümde sayılır, girişleri "Parça teslim al" ile yapılır.

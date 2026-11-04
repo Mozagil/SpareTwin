@@ -132,7 +132,8 @@ export function AssetPage() {
 
       {modal?.kind === "meter" && <MeterModal assetId={a.id} current={a.meter_hours} onClose={() => setModal(null)} />}
       {modal?.kind === "install" && modal.pos && (
-        <InstallModal assetId={a.id} assetCode={a.code} position={modal.pos} onClose={() => setModal(null)} />
+        <InstallModal assetId={a.id} assetCode={a.code} position={modal.pos}
+                      rimSlot={a.positions.find((p) => p.code === `${modal.pos!.code}-J`)} onClose={() => setModal(null)} />
       )}
       {modal?.kind === "remove" && modal.pos?.part_item_id && (
         <RemoveModal partId={modal.pos.part_item_id} title={`${a.code} ${modal.pos.code}`} onClose={() => setModal(null)} />
