@@ -31,6 +31,7 @@ from reportlab.platypus import (
 )
 
 from .storage import Storage
+from .tenant_settings import thresholds
 
 TZ = ZoneInfo("Europe/Istanbul")
 FONT_DIR = Path(__file__).parent / "fonts"
@@ -90,6 +91,7 @@ def gather(conn: psycopg.Connection, storage: Storage, tenant_id: UUID, user_id:
     f = {"t": tenant_id, "a": scope.asset_id, "s": scope.site_id}
     where_asset = "(%(a)s::uuid is null or h.id = %(a)s) and (%(s)s::uuid is null or h.site_id = %(s)s)"
     tenant = conn.execute("select name from public.tenants where id = %(t)s", f).fetchone()
+    th = thresholds(conn, tenant_id)  # firma eşikleri (0013)
     user = conn.execute("select coalesce(full_name, email) as n from public.app_users where id = %s", [user_id]).fetchone()
     assets = conn.execute(
         f"""select h.*, s.name as site_name from public.v_asset_health h
@@ -141,7 +143,7 @@ def gather(conn: psycopg.Connection, storage: Storage, tenant_id: UUID, user_id:
                 pass  # dosya bulunamazsa rapor yine üretilsin
 
     return {
-        "tenant": tenant["name"], "user": user["n"] if user else "", "now": datetime.now(TZ),
+        "tenant": tenant["name"], "user": user["n"] if user else "", "now": datetime.now(TZ), "thresholds": th,
         "single": scope.asset_id is not None, "assets": assets, "attention": attention, "cost": cost,
         "stock": [s for s in stock if s["in_stock"] < s["min_stock"]], "rims": rims, "photos": photos,
         "kpi": {
@@ -294,7 +296,8 @@ def render(d: dict[str, Any]) -> bytes:
         rows = [["Makine", "Model", "Saha", "Motor saati", "Son kontrol", "Kritik", "Takipte", "En kötü"]]
         for a in d["assets"]:
             worst = a["worst_condition_pct"]
-            wb = "critical" if worst is not None and worst < 20 else "watch" if worst is not None and worst < 40 else "ok"
+            crit, watch = d["thresholds"]["critical_pct"], d["thresholds"]["watch_pct"]
+            wb = "critical" if worst is not None and worst < crit else "watch" if worst is not None and worst < watch else "ok"
             rows.append([
                 Paragraph(f"<b>{a['code']}</b>", st["cell"]), Paragraph(f"{a['manufacturer'] or ''} {a['model'] or ''}", st["cell"]),
                 Paragraph(a["site_name"] or "–", st["cell"]), Paragraph(_n(a["meter_hours"]), st["cellr"]),

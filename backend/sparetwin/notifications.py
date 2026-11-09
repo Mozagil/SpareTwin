@@ -13,7 +13,8 @@ from uuid import UUID
 
 import psycopg
 
-STALE_DAYS = 30
+from .tenant_settings import thresholds
+
 CAT_TR = {"tire": "lastik", "rim": "jant", "hyd_cylinder": "hidrolik silindir", "hyd_pump": "hidrolik pompa",
           "battery": "akü", "filter": "filtre"}
 
@@ -24,6 +25,7 @@ def _n(v: Any) -> str:
 
 def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    stale_days = int(thresholds(conn, tenant_id)["inspection_interval_days"])  # firma ayarı (0013)
 
     # 1) Kritik parçalar
     for p in conn.execute(
@@ -69,7 +71,7 @@ def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
             "link": {"type": "stock", "id": str(s["id"])}, "at": None})
 
     # 4) Uzun süredir kontrol edilmeyen makineler
-    limit = datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)
+    limit = datetime.now(timezone.utc) - timedelta(days=stale_days)
     for a in conn.execute(
         """select a.id, a.code, a.created_at,
                   (select max(i.completed_at) from public.inspections i
@@ -82,7 +84,7 @@ def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
                 "key": f"stale:{a['id']}:{a['last'].date().isoformat() if a['last'] else 'never'}",
                 "kind": "asset_stale", "severity": "watch",
                 "title": f"{a['code']} {days} gündür kontrol edilmedi" if a["last"] else f"{a['code']} hiç kontrol edilmedi",
-                "body": f"Saha kontrolü {STALE_DAYS} günde bir önerilir",
+                "body": f"Saha kontrolü {stale_days} günde bir önerilir",
                 "link": {"type": "asset", "id": str(a["id"])}, "at": a["last"]})
 
     # 5) Lastiği takılı ama jantı kaydedilmemiş pozisyonlar (muayene takibi yapılamıyor)

@@ -52,6 +52,7 @@ class Ctx(UserCtx):
 
 
 def current_user(
+    request: Request,
     creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
     settings: Annotated[Settings, Depends(settings_dep)],
 ) -> UserCtx:
@@ -69,10 +70,12 @@ def current_user(
         active = conn.execute("select app.auth_user_active(%s) as ok", [uid]).fetchone()["ok"]
     if not active:
         raise unauthorized
+    request.state.user_id = uid  # denetim kaydı için
     return UserCtx(uid)
 
 
 def tenant_ctx(
+    request: Request,
     user: Annotated[UserCtx, Depends(current_user)],
     x_tenant_id: Annotated[UUID | None, Header(description="Çok firmalı kullanıcılar için firma")] = None,
 ) -> Ctx:
@@ -91,6 +94,7 @@ def tenant_ctx(
         row = next((r for r in rows if r["tenant_id"] == x_tenant_id), None)
         if row is None:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Bu firmaya erişiminiz yok")
+    request.state.tenant_id = row["tenant_id"]  # denetim kaydı için
     return Ctx(user.user_id, row["tenant_id"], row["role"])
 
 

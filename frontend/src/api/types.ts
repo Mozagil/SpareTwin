@@ -341,6 +341,49 @@ export interface Notification {
   link: { type: "part" | "rim" | "stock" | "asset"; id: string };
   at: string | null;
   read: boolean;
+  /** Ekip bazlı durum: üstlenildi / gizlendi / yok. Durum değişince kendiliğinden düşer. */
+  state: NotificationState | null;
+  state_by: string | null;
+  state_at: string | null;
+  note: string | null;
+}
+export type NotificationState = "acknowledged" | "dismissed";
+export interface NotificationList {
+  items: Notification[];
+  unread: number;
+  dismissed: number;
+}
+
+// ---------- Firma ayarları ve denetim kaydı ----------
+export interface Thresholds {
+  critical_pct: number;
+  watch_pct: number;
+  rim_due_soon_pct: number;
+  inspection_interval_days: number;
+}
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  currency: string;
+  thresholds: Thresholds;
+  defaults: Thresholds;
+}
+export interface AuditRow {
+  id: number;
+  at: string;
+  user_id: string | null;
+  user_email: string | null;
+  user_name: string | null;
+  method: string;
+  path: string;
+  status: number;
+  entity_type: string | null;
+  entity_id: string | null;
+  action: string | null;
+  detail: Record<string, unknown> | null;
+  ip: string | null;
 }
 
 // ---------- Stok ----------

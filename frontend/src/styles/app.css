@@ -438,3 +438,20 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); out
   .search { padding: 5px 12px; }
   .asset-head .imagebox { width: 100%; }
 }
+
+/* ---------- Bildirim: ekip durumu (üstlen / gizle) ---------- */
+.bell-head-actions { display: flex; gap: 12px; align-items: center; }
+.bell-list li.dismissed .bell-item { opacity: .5; }
+.bell-state { display: block; margin-top: 3px; font-size: 12.5px; color: var(--muted); }
+.bell-state.acknowledged { color: var(--ok); }
+.bell-actions { display: flex; gap: 14px; padding: 0 10px 8px 25px; }
+.bell-actions .link-btn { font-size: 12.5px; }
+.bell-actions .link-btn.muted { color: var(--muted); }
+.bell-error { margin: 0; padding: 8px 14px; font-size: 13px; color: var(--critical); border-bottom: 1px solid var(--line); }
+
+/* ---------- Ayarlar ve denetim kaydı ---------- */
+.audit-panel { margin-top: 16px; }
+.table.audit tbody tr { cursor: default; }
+.table .nowrap { white-space: nowrap; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; word-break: break-all; }
+input[aria-invalid="true"] { border-color: var(--critical); }

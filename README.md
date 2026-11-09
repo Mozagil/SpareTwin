@@ -18,7 +18,7 @@ Makine imalatçıları, üretim fabrikaları ve iş makinesi filoları için **d
 |---|---|
 | `frontend/` | React uygulaması: giriş, filo dashboard'u, makine ve parça sayfaları, kayıt, etiketler |
 | `backend/sparetwin/` | FastAPI: kimlik, kayıt, filo, yaşam döngüsü, inspeksiyon, dosyalar, QR etiket |
-| `backend/tests/` | 92 test: kimlik, firma izolasyonu, kayıt, Excel içe aktarma, PDF rapor, jant ve bildirimler, stok, iş kuralları, kontrol formu, görseller ve gizlilik, etiket, S3, şema sıfırlama |
+| `backend/tests/` | 105 test: kimlik, firma izolasyonu, kayıt, Excel içe aktarma, PDF rapor, jant ve bildirimler, stok, iş kuralları, kontrol formu, görseller ve gizlilik, etiket, S3, şema sıfırlama, firma eşikleri, bildirim durumu, denetim kaydı |
 | `db/migrations/` | Şema, RLS, iş kuralları, TireIQ modülü, kimlik fonksiyonları |
 | `db/seed/demo.sql` | Demo firma: 4 makine, 29 takılı parça, ölçüm geçmişi |
 | `deploy/` | Canlı ortam paketi (şimdilik kullanılmıyor) |
@@ -32,7 +32,7 @@ Codespace iki container ile açılır: Python 3.12 + Node 22 çalışma ortamı 
 ```bash
 make reset   # şemayı kur + demo veri
 make dev     # API + uygulama birlikte → Ports sekmesinde 5173'ü aç
-make test    # 92 backend + 23 frontend testi
+make test    # 105 backend + 29 frontend testi
 ```
 
 Demo giriş bilgileri (yalnızca geliştirme):
@@ -80,4 +80,4 @@ Bir dosyanın silinmesi gerekiyorsa zip'in yanında not olarak belirtilir. `.dev
 
 ## Şu anki durum
 
-Faz 0 tamamlandı. Faz 1 (TireIQ MVP) yazılım tarafı tamamlandı (v1.0): görseller, mobil kontrol formu, Excel ile toplu içe aktarma, PDF rapor, jant uyumluluğu (lastikle birlikte takma, Excel), rotasyon ve uygulama içi bildirimler. Faz 2 başladı: depo ve stok hazır; sırada satınalma (tedarikçi, talep, sipariş, teslim alma). Ayrıntı: `docs/04-yol-haritasi.md`.
+Faz 0 tamamlandı. Faz 1 (TireIQ MVP) yazılım tarafı tamamlandı (v1.0): görseller, mobil kontrol formu, Excel ile toplu içe aktarma, PDF rapor, jant uyumluluğu (lastikle birlikte takma, Excel), rotasyon ve uygulama içi bildirimler. v1.2: eski TireIQ taslağından devralınan firma eşikleri (kritik/izleme yüzdesi, jant ve kontrol aralığı), bildirimde ekip bazlı üstlen/gizle ve denetim kaydı; hepsi yöneticinin **Ayarlar** sayfasında. Faz 2 başladı: depo ve stok hazır; sırada satınalma (tedarikçi, talep, sipariş, teslim alma). Ayrıntı: `docs/04-yol-haritasi.md`.

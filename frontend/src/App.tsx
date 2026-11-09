@@ -12,6 +12,7 @@ import { PartPage } from "./pages/PartPage";
 import { PartsPage } from "./pages/PartsPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { RimsPage } from "./pages/RimsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { StockPage } from "./pages/StockPage";
 
 export function App() {
@@ -33,6 +34,7 @@ export function App() {
           <Route path="stok" element={<StockPage />} />
           <Route path="kontrol" element={<InspectionStartPage />} />
           <Route path="kontrol/:id" element={<InspectionPage />} />
+          <Route path="ayarlar" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

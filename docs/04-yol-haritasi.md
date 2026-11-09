@@ -80,6 +80,8 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 
 | ✅ Excel'de jant sütunları | Jant seri no, ebat, NDT periyodu; stoktaki jant takılır, yoksa oluşturulur |
 | ✅ "Jant kaydı yok" bildirimi | Lastiği takılı ama jantı kaydedilmemiş pozisyonlar: muayene takibi yapılamadığı uyarısı |
+| ✅ **Firma eşikleri** (`/ayarlar`, v1.2) | Kritik ve izleme yüzdesi, jant "yaklaşıyor" yüzdesi, kontrol aralığı (gün) firma başına ayarlanır; dashboard, bildirim ve rapor aynı eşiği kullanır (`0013`). Eski TireIQ taslağından devralındı (K-014) |
+| ✅ **Bildirimde ekip durumu** (v1.2) | "Üstlen" (biri ilgileniyor, kim/ne zaman) ve "gizle" (durum değişene kadar). Durum kötüleşince kayıt kendiliğinden düşer, sorun geçince kapanır |
 
 **Faz 1 yazılımı tamamlandı (v1.0).** Kalan tek kalem sökme sebeplerinin firmaya özel düzenlenmesi; Faz 3'teki ayarlar ekranına taşındı.
 
@@ -121,7 +123,7 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 | Plan limitleri | TireIQ sunumundaki Starter / Pro / Enterprise yapısı, parça sayısı limiti |
 | Onboarding sihirbazı | İlk saha, ilk makine, ilk QR etiketi |
 | Raporlar ve dışa aktarma | Tüm veri CSV/JSON, zamanlanmış e-posta raporu |
-| Denetim kaydı ve rol ayrıntıları | |
+| 🟡 Denetim kaydı ve rol ayrıntıları | ✅ Denetim kaydı v1.2'de öne çekildi: durum değiştiren her istek kim/ne/ne zaman olarak yazılır, yönetici `/ayarlar`'da görür (`0013`). ⏳ Rol ayrıntıları (özel yetkiler) |
 | KVKK metinleri, kullanım koşulları, veri işleme sözleşmesi | Hukuki kontrol gerekli |
 | PWA | Ana ekrana ekleme, zayıf internette çalışma (çevrimdışı kuyruk) |
 | Giriş güvenliği | Deneme sınırı, e-posta ile parola sıfırlama, davet akışı |

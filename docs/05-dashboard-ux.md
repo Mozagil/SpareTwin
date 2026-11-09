@@ -55,11 +55,11 @@ Durum renkleri her zaman metinle birlikte kullanılır (renk körlüğü): "Krit
 | QR / seri no arama | üst çubuk | 0 | ✅ | `GET /qr/{kod}` |
 | Saha kontrolü (mobil) | `/kontrol`, `/kontrol/:id` | 1 | ✅ | `POST /inspections`, `GET .../sheet`, `PUT .../measurements`, `POST .../photos`, `POST .../complete` |
 | Jant uyumluluğu | `/jantlar` | 1 | ✅ | `GET /rims/compliance`, muayene kaydı `POST /parts/{id}/events` |
-| Bildirimler | Üst çubukta zil | 1 | ✅ | `GET /notifications`, `POST /notifications/read` |
+| Bildirimler | Üst çubukta zil | 1 | ✅ | `GET /notifications`, `POST /notifications/read`; ekip durumu (üstlen / gizle / geri al) `POST /notifications/state` |
 | PDF durum raporu | Filo ve makine sayfalarında "PDF rapor" düğmesi | 1 | ✅ | `GET /reports/fleet.pdf?asset_id=&site_id=` |
 | Stok | `/stok` | 2 | ✅ | `GET /stock`, `GET /stock/{id}/movements`, `POST /stock/movements`, `POST /stock/transfer` |
 | Bakım planı | `/bakim` | 2 | | Faz 2 |
-| Ayarlar | `/ayarlar` | 0–3 | | firma, kullanıcılar, kategoriler, şablonlar |
+| Ayarlar | `/ayarlar` | 1 | 🟡 | ✅ firma adı ve uyarı eşikleri `GET/PATCH /organization`, denetim kaydı `GET /audit` (yönetici). ⏳ kullanıcılar, kategoriler, şablonlar (Faz 2–3) |
 
 ## Mobil inspeksiyon akışı (Faz 1)
 

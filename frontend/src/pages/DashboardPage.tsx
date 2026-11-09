@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useAsset, useAssets, useCatalogParts, useParts, useTireCost } from "../api/hooks";
+import { useAsset, useAssets, useCatalogParts, useOrganization, useParts, useTireCost } from "../api/hooks";
 import type { AssetSummary, Position } from "../api/types";
 import { MachineSchematic } from "../components/MachineSchematic";
 import { ReportButton } from "../components/ReportButton";
@@ -126,6 +126,8 @@ function TireCostPanel() {
 
 export function DashboardPage() {
   const assets = useAssets();
+  // Renk açıklaması firmanın eşiklerini gösterir (Ayarlar'dan değişir); yüklenene kadar varsayılanlar
+  const th = useOrganization().data?.thresholds ?? { critical_pct: 20, watch_pct: 40 };
   const [assetId, setAssetId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [slot, setSlot] = useState<Position | null>(null);
@@ -181,9 +183,9 @@ export function DashboardPage() {
                 <MachineSchematic layout={a.layout} positions={a.positions} selected={slot?.code} showAll={showAll} onSelect={setSlot} />
               </div>
               <div className="legend">
-                <span style={{ ["--c" as string]: "var(--ok)" }}>%40 üzeri</span>
-                <span style={{ ["--c" as string]: "var(--watch)" }}>%20–40 takipte</span>
-                <span style={{ ["--c" as string]: "var(--critical)" }}>%20 altı kritik</span>
+                <span style={{ ["--c" as string]: "var(--ok)" }}>%{num(th.watch_pct)} üzeri</span>
+                <span style={{ ["--c" as string]: "var(--watch)" }}>%{num(th.critical_pct)}–{num(th.watch_pct)} takipte</span>
+                <span style={{ ["--c" as string]: "var(--critical)" }}>%{num(th.critical_pct)} altı kritik</span>
                 <span style={{ ["--c" as string]: "var(--unknown)" }}>Ölçüm bekliyor</span>
               </div>
             </>

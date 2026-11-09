@@ -174,3 +174,21 @@ Her önemli karar burada: ne seçildi, neden, neyi göze aldık. Bir karar deği
 **Neden:** Miktar alanı ile hareket geçmişi zamanla çelişir ("sistemde 12 yazıyor ama hareketler 10 diyor"). Tek kaynak bu çelişkiyi imkânsız kılar ve her sayının nereden geldiği izlenebilir. Makineye bağlanan çıkışlar, toplam sahip olma maliyetinin (Faz 2 sonu) temelidir.
 
 **Seri numaralı parçalar:** Lastik, jant, silindir gibi parçalar zaten tek tek izleniyor; stoktakiler aynı görünümde sayılır, girişleri "Parça teslim al" ile yapılır.
+
+---
+
+## K-014 · TireIQ taslağı arşivlendi; üç parçası SpareTwin'e taşındı
+
+**Tarih:** 9 Kasım 2026 · **Durum:** Kabul
+
+**Karar:** Ayrı bir monorepo olarak başlanan ve commit atılmadan bırakılan TireIQ taslağı (FastAPI + SQLAlchemy + Next.js, yalnızca lastik) devam ettirilmez. Yol haritasına uyan üç parçası SpareTwin'e, bizim mimariyle (RLS, kurallar veritabanında, bildirimler güncel veriden) yeniden yazılarak alındı:
+
+1. **Firma başına uyarı eşikleri.** Koda gömülü %20 / %40 / %90 / 30 gün değerleri `tenants.settings->'thresholds'` içine taşındı; görünümler (`v_part_health`, `v_rim_compliance`) ve bildirimler firmanın ayarını okur, yoksa aynı varsayılanlar geçerli.
+2. **Uyarı yaşam döngüsü.** TireIQ'daki tekilleştirme / yükselme / kendiliğinden kapanma kuralları, bildirim anahtarının durumu da içermesi sayesinde tablo eklemeden karşılandı: ekip bazlı "üstlen" ve "gizle" durumu anahtara bağlıdır; durum kötüleşince anahtar değişir ve kayıt düşer, sorun geçince anahtar listeden çıkar ve kayıt temizlenir. Okundu bilgisi kişisel kalır.
+3. **Denetim kaydı.** Faz 3'ten öne çekildi. Uç noktalara dokunmadan HTTP ara katmanı yazar; uygulama rolünün tabloya yazma yetkisi yoktur, yalnızca yöneticiler okur.
+
+**Alınmayanlar:** Aşınma ölçeği (bizde zaten kullanılabilir derinlik üzerinden hesaplanıyor), `@tireiq/ui` design system paketi (kendi görsel dilimiz oturmuş), uygulama katmanında kiracı filtresi (bizde RLS veritabanında zorluyor).
+
+**Neden:** TireIQ lastiğe kilitli, SpareTwin genel parça modeli; iki kod tabanı taşımak iki kat bakım demek. Taslaktaki iyi fikirler kodla değil kuralla alındı, böylece aynı davranış her parça tipi için geçerli.
+
+**Göze alınan:** Eşik değişikliği bütün filoya anında uygulanır; geçmişe dönük "o gün kritik miydi" sorusu için denetim kaydındaki eşik değişiklikleri referanstır.

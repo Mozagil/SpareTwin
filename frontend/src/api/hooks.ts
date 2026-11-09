@@ -6,8 +6,12 @@ import type {
   AssetSummary,
   CatalogPart,
   Category,
+  AuditRow,
   InspectionSummary,
   Notification,
+  NotificationList,
+  NotificationState,
+  Organization,
   QcFlag,
   RimRow,
   StockMovement,
@@ -18,6 +22,7 @@ import type {
   PartListItem,
   Site,
   Template,
+  Thresholds,
   TireCost,
   Wear,
 } from "./types";
@@ -212,10 +217,10 @@ export function useInspectionActions(id: string) {
 // ---------- Jantlar ve bildirimler ----------
 export const useRims = () => useQuery({ queryKey: ["rims"], queryFn: () => api<RimRow[]>("/rims/compliance") });
 
-export const useNotifications = () =>
+export const useNotifications = (includeDismissed = false) =>
   useQuery({
-    queryKey: ["notifications"],
-    queryFn: () => api<{ items: Notification[]; unread: number }>("/notifications"),
+    queryKey: ["notifications", includeDismissed],
+    queryFn: () => api<NotificationList>("/notifications", { query: { include_dismissed: includeDismissed || undefined } }),
     refetchInterval: 60_000, // dakikada bir tazele
   });
 
@@ -226,6 +231,34 @@ export function useMarkRead() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 }
+
+/** Üstlen / gizle / geri al: ekip bazlı, saha rolü ve üstü. */
+export function useNotificationState() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { key: string; state: NotificationState | null; note?: string }) =>
+      api<Notification>("/notifications/state", { method: "POST", body: v }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
+// ---------- Firma ayarları ve denetim kaydı ----------
+export const useOrganization = () =>
+  useQuery({ queryKey: ["organization"], queryFn: () => api<Organization>("/organization"), staleTime: 5 * 60_000 });
+
+export function useUpdateOrganization() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { name?: string; thresholds?: Thresholds }) => api<Organization>("/organization", { method: "PATCH", body: v }),
+    // Eşikler bant hesabını değiştirir: filo, parça, jant ve bildirim görünümleri tazelenir
+    onSuccess: () =>
+      Promise.all(["organization", "assets", "asset", "parts", "part", "rims", "notifications", "audit"].map((k) =>
+        qc.invalidateQueries({ queryKey: [k] }))),
+  });
+}
+
+export const useAudit = (f: { q?: string; limit?: number; entity_id?: string }) =>
+  useQuery({ queryKey: ["audit", f], queryFn: () => api<AuditRow[]>("/audit", { query: { ...f } }) });
 
 // ---------- Stok ----------
 export const useStock = (f: { category?: string; below?: boolean; q?: string }) =>
