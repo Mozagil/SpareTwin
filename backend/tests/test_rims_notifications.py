@@ -62,7 +62,8 @@ def test_durum_degisince_bildirim_yeniden_okunmamis_olur(client, manager):
     stock = [i for i in n["items"] if i["kind"] == "stock_low" and "29.5R25" in i["title"]]
     # 2 adet oldu = kritik seviye (2): artık uyarı yok
     assert stock == []
-    assert n["unread"] == 0
+    # Stok 1→2 olduğu için lastiğin sipariş ihtiyacı bildirimi yeni anahtarla yeniden okunmamış olur; başka yeni bildirim yok
+    assert {i["kind"] for i in n["items"] if not i["read"]} <= {"purchase_need"}
 
 
 def test_baska_firma_bildirimleri_gormez(client, other):

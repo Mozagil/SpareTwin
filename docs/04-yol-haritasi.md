@@ -102,8 +102,8 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 | Kategori ve ölçüm profili yönetim ekranı | Firma kendi parça tiplerini tanımlar |
 | Pozisyon şablonu düzenleyici | Firma kendi makine tipini çizer (sürükle-bırak x/y) |
 | ✅ **Depo ve stok hareketleri** (`/stok`) | Sarf malzemeleri (filtre, yağ, keçe) adet/litre/takım ile: giriş, makineye çıkış, sayım düzeltmesi, depolar arası transfer. Seviye hareketlerden hesaplanır, defter değiştirilemez, eksi stok yok, ağırlıklı ortalama maliyet. Seri numaralı stok aynı ekranda (`0012`) |
-| 🟡 Kritik stok uyarısı ve yaklaşan değişime göre ihtiyaç | ✅ Kritik seviye uyarısı (bildirim, dashboard, rapor) sarf dahil. ⏳ "LD-07 için 2 lastik yaklaşıyor, stokta 1 var" önerisi satınalma adımıyla gelecek |
-| Tedarikçi, satınalma talebi, sipariş, teslim alma | KOBİ ERP planındaki satınalma modülünün sade hali |
+| ✅ **Kritik stok uyarısı ve yaklaşan değişime göre ihtiyaç** | Kritik seviye uyarısı (bildirim, dashboard, rapor) sarf dahil. "LD-07 için 2 lastik yaklaşıyor, stokta 1 var" önerisi `v_purchase_needs` ile: kritik ya da firmanın *değişim ufku* (varsayılan 500 saat) içinde ömrü biten takılı parçalar + kritik seviye − stok − siparişte. Bildirimde, dashboard'un öncelikli işlerinde ve Satınalma › İhtiyaç'ta; tek tıkla talebe dönüşür |
+| ✅ **Tedarikçi, satınalma talebi, sipariş, teslim alma** (`/satinalma`) | KOBİ ERP planındaki satınalma modülünün sade hali (`0014`): talep (teknisyen) → sipariş (yönetici, tedarikçi şart) → kısmi / tam teslim (teknisyen); iptal yalnızca teslimat başlamadan. Teslim alma stokla aynı kapıdan geçer: sarf kalemi `stock_move('in')` ile sipariş no + irsaliye referansıyla, seri numaralı parça `part_items` + `received` olayıyla. Geciken sipariş bildirimi. ⏳ Fiyat teklifi karşılaştırma, tedarikçi performansı |
 | Bakım planları | Saat veya takvim bazlı periyodik bakım |
 | Arıza ve duruş kaydı | Duruş süresi, sebep, ilgili parça |
 | Makine toplam sahip olma maliyeti | Parça + bakım + duruş |

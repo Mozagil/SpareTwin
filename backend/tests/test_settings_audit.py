@@ -13,7 +13,7 @@ def _item(client, headers, pred, **params):
 def test_varsayilan_esikler(client, manager):
     o = client.get("/organization", headers=manager).json()
     assert o["name"].startswith("Demo") and o["currency"] == "USD"
-    assert o["thresholds"] == {"critical_pct": 20, "watch_pct": 40, "rim_due_soon_pct": 90, "inspection_interval_days": 30}
+    assert o["thresholds"] == {"critical_pct": 20, "watch_pct": 40, "rim_due_soon_pct": 90, "inspection_interval_days": 30, "need_horizon_hours": 500}
     assert o["defaults"] == o["thresholds"]
 
 

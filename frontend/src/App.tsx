@@ -10,6 +10,7 @@ import { LabelsPage } from "./pages/LabelsPage";
 import { LoginPage, TenantPicker } from "./pages/LoginPage";
 import { PartPage } from "./pages/PartPage";
 import { PartsPage } from "./pages/PartsPage";
+import { PurchasingPage } from "./pages/PurchasingPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { RimsPage } from "./pages/RimsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -32,6 +33,7 @@ export function App() {
           <Route path="etiketler" element={<LabelsPage />} />
           <Route path="jantlar" element={<RimsPage />} />
           <Route path="stok" element={<StockPage />} />
+          <Route path="satinalma" element={<PurchasingPage />} />
           <Route path="kontrol" element={<InspectionStartPage />} />
           <Route path="kontrol/:id" element={<InspectionPage />} />
           <Route path="ayarlar" element={<SettingsPage />} />

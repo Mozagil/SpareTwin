@@ -11,6 +11,8 @@ export function notificationPath(n: Notification): string {
     case "asset": return `/makine/${n.link.id}`;
     case "rim": return "/jantlar";
     case "stock": return `/stok?kalem=${n.link.id}`;
+    case "purchasing": return "/satinalma?sekme=ihtiyac";
+    case "order": return `/satinalma?sekme=siparisler&siparis=${n.link.id}`;
   }
 }
 

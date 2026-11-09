@@ -222,3 +222,20 @@ from (values
   ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000001', 'in',  120,  4.30,  null,    'satınalma', 'IRS-2026-0802', 80),
   ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000001', 'out', -40,  4.30,  'RS-02', 'yağ değişimi', null, 30)
 ) as v(part, site, kind, qty, cost, asset, reason, ref, days);
+
+-- ---------- Satınalma (Faz 2) ----------
+insert into public.suppliers (id, tenant_id, name, contact_name, phone, email, lead_time_days, notes) values
+  ('61111111-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Volvo Yetkili Servis',
+   'Ahmet Kaya', '+90 232 000 00 01', 'servis@volvo-bayi.test', 7, 'Filtre, keçe ve silindir parçaları'),
+  ('61111111-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Lastik Dünyası (Michelin bayisi)',
+   'Elif Demir', '+90 236 000 00 02', 'satis@lastikdunyasi.test', 14, '29.5R25 ve 18.00-25 ebatları stoktan');
+
+-- Açık sipariş: filtre ve keçe takımı yolda (teslim 4 gün sonra)
+insert into public.purchase_orders (id, tenant_id, number, supplier_id, site_id, status, expected_at, notes, requested_by, ordered_by, ordered_at, created_at)
+values ('71111111-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'SA-' || to_char(now(), 'YYYY') || '-0001',
+        '61111111-0000-0000-0000-000000000001', '21111111-0000-0000-0000-000000000002', 'ordered', current_date + 4,
+        'Periyodik bakım stoğu', (select id from public.app_users where email = 'teknisyen@demo.sparetwin.dev'),
+        (select id from public.app_users where email = 'yonetici@demo.sparetwin.dev'), now() - interval '3 days', now() - interval '4 days');
+insert into public.purchase_order_lines (tenant_id, order_id, part_id, qty, unit_cost) values
+  ('11111111-1111-1111-1111-111111111111', '71111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000011', 10, 84.00),
+  ('11111111-1111-1111-1111-111111111111', '71111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000013', 1, 335.00);

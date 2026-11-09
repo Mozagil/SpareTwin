@@ -334,11 +334,11 @@ export interface RimRow {
 
 export interface Notification {
   key: string;
-  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing";
+  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing" | "purchase_need" | "po_late";
   severity: "critical" | "watch";
   title: string;
   body: string;
-  link: { type: "part" | "rim" | "stock" | "asset"; id: string };
+  link: { type: "part" | "rim" | "stock" | "asset" | "purchasing" | "order"; id: string };
   at: string | null;
   read: boolean;
   /** Ekip bazlı durum: üstlenildi / gizlendi / yok. Durum değişince kendiliğinden düşer. */
@@ -360,6 +360,7 @@ export interface Thresholds {
   watch_pct: number;
   rim_due_soon_pct: number;
   inspection_interval_days: number;
+  need_horizon_hours: number;
 }
 export interface Organization {
   id: string;
@@ -420,4 +421,125 @@ export interface StockMovement {
   asset_code: string | null;
   asset_id: string | null;
   performed_by_name: string | null;
+}
+
+// ---------- Satınalma (Faz 2) ----------
+export type PoStatus = "draft" | "ordered" | "partial" | "received" | "cancelled";
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  tax_no: string | null;
+  address: string | null;
+  notes: string | null;
+  lead_time_days: number | null;
+  is_active: boolean;
+  created_at: string;
+  open_orders?: number;
+}
+
+export interface SupplierIn {
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  tax_no: string | null;
+  address: string | null;
+  notes: string | null;
+  lead_time_days: number | null;
+  is_active: boolean;
+}
+
+export interface PurchaseNeed {
+  part_id: string;
+  name: string;
+  manufacturer: string | null;
+  part_no: string | null;
+  unit: Unit;
+  category_code: string;
+  is_serialized: boolean;
+  min_stock: number;
+  in_stock: number;
+  avg_cost: number | null;
+  /** Yaklaşan değişim sayısı (kritik ya da değişim ufku içinde) */
+  upcoming: number;
+  items: { id: string; asset_code: string; position: string; band: Band; condition_pct: number | null; hours_left: number | null }[] | null;
+  on_order: number;
+  requested: number;
+  /** Önerilen sipariş miktarı */
+  need: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  number: string;
+  status: PoStatus;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  site_id: string | null;
+  site_name: string | null;
+  expected_at: string | null;
+  notes: string | null;
+  ordered_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  requested_by_name: string | null;
+  ordered_by_name: string | null;
+  line_count: number;
+  total: number | null;
+  received_total: number | null;
+  summary: string | null;
+  late: boolean;
+}
+
+export interface PurchaseOrderLine {
+  id: number;
+  part_id: string;
+  name: string;
+  manufacturer: string | null;
+  part_no: string | null;
+  unit: Unit;
+  is_serialized: boolean;
+  category_code: string;
+  qty: number;
+  received_qty: number;
+  unit_cost: number | null;
+  asset_id: string | null;
+  asset_code: string | null;
+  notes: string | null;
+}
+
+export interface PurchaseReceipt {
+  id: number;
+  line_id: number;
+  name: string;
+  qty: number;
+  ref: string | null;
+  serials: { id: string; serial_no: string | null }[] | null;
+  received_at: string;
+  site_name: string | null;
+  received_by_name: string | null;
+}
+
+export interface PurchaseOrderDetail extends PurchaseOrder {
+  lines: PurchaseOrderLine[];
+  receipts: PurchaseReceipt[];
+}
+
+export interface PurchaseLineIn { part_id: string; qty: number; unit_cost: number | null; asset_id: string | null; notes: string | null }
+export interface PurchaseOrderIn {
+  supplier_id: string | null;
+  site_id: string | null;
+  expected_at: string | null;
+  notes: string | null;
+  lines: PurchaseLineIn[];
+}
+export interface ReceiveIn {
+  site_id: string | null;
+  ref: string | null;
+  lines: { line_id: number; qty: number; serials?: { serial_no: string | null; qr_code?: string | null }[] }[];
 }

@@ -192,3 +192,11 @@ Her önemli karar burada: ne seçildi, neden, neyi göze aldık. Bir karar deği
 **Neden:** TireIQ lastiğe kilitli, SpareTwin genel parça modeli; iki kod tabanı taşımak iki kat bakım demek. Taslaktaki iyi fikirler kodla değil kuralla alındı, böylece aynı davranış her parça tipi için geçerli.
 
 **Göze alınan:** Eşik değişikliği bütün filoya anında uygulanır; geçmişe dönük "o gün kritik miydi" sorusu için denetim kaydındaki eşik değişiklikleri referanstır.
+
+## K-015 · Satınalma teslimatı stok kapısından geçer; ihtiyaç kuralla hesaplanır
+
+**Karar:** Satınalma modülü (`0014`) kendi stok sayısı tutmaz. Teslim alma, kalem türüne göre zaten var olan iki girişten birini çağırır: sarf kalemi için `stock_move('in')` (maliyet = sipariş fiyatı, referans = sipariş no / irsaliye), seri numaralı parça için `part_items` + `received` olayı. Talep ve sipariş aynı tabloda yaşar (`status`: draft → ordered → partial → received, ya da cancelled); durum satırlardaki teslim miktarından hesaplanır. İhtiyaç önerisi bir görünümdür (`v_purchase_needs`): yaklaşan değişimler (kritik ya da *değişim ufku* saatinden az ömrü kalan takılı parçalar) + kritik seviye − stok − siparişte.
+
+**Neden:** "Stokta kaç var" sorusunun tek cevabı olmalı (K-013). Ayrı bir satınalma stoğu ya da "yolda" sayacı tutulsa defterle çelişirdi. İhtiyacın görünüm olması, bildirim, dashboard ve Satınalma sayfasının aynı cümleyi söylemesini sağlar; eşik (ufuk) firma ayarıdır.
+
+**Göze alınan:** Talep aşamasında kalem değişebilir, sipariş verildikten sonra değişmez (yeni talep açılır); kısmi teslimatlı sipariş iptal edilemez, kalanı kapatılır. Fiyat teklifi karşılaştırma ve tedarikçi performansı bu sürümde yok.

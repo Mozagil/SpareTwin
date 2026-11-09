@@ -31,6 +31,8 @@ SKIP_METHODS = {"GET", "HEAD", "OPTIONS"}
 # Gürültü: oturum yenileme ve kişisel okundu işareti bir "değişiklik" sayılmaz.
 SKIP_PATHS = {"/auth/refresh", "/notifications/read"}
 METHOD_ACTION = {"POST": "create", "PUT": "update", "PATCH": "update", "DELETE": "delete"}
+# Varlık altındaki koleksiyonlar: /purchasing/orders → eylem "orders" değil, yöntemden (create) gelir
+SUB_COLLECTIONS = {"orders", "suppliers"}
 
 
 def describe(method: str, path: str) -> tuple[str | None, UUID | None, str | None]:
@@ -56,6 +58,8 @@ def describe(method: str, path: str) -> tuple[str | None, UUID | None, str | Non
     if action is None:
         tail = [s for s in rest if not UUID_RE.match(s)]
         action = tail[-1] if tail else METHOD_ACTION.get(method)
+    if action in SUB_COLLECTIONS:
+        action = METHOD_ACTION.get(method)
     return entity_type, entity_id, action
 
 

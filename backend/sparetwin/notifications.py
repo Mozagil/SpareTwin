@@ -59,16 +59,47 @@ def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
             "body": f"Son muayeneden bu yana {_n(r['hours_since_ndt'])} / {_n(r['ndt_interval_hours'])} saat",
             "link": {"type": "rim", "id": str(r["id"])}, "at": None})
 
-    # 3) Kritik seviyenin altındaki stok
+    # 3) Kritik seviyenin altındaki stok (siparişte olan varsa söylenir; anahtar değişir)
     for s in conn.execute(
-        """select part_id as id, name, min_stock, qty as in_stock, unit from public.v_stock_totals
-            where tenant_id = %s and min_stock > 0 and below_min""", [tenant_id]).fetchall():
+        """select st.part_id as id, st.name, st.min_stock, st.qty as in_stock, st.unit, coalesce(oo.on_order, 0) as on_order
+             from public.v_stock_totals st
+             left join public.v_purchase_on_order oo on oo.tenant_id = st.tenant_id and oo.part_id = st.part_id
+            where st.tenant_id = %s and st.min_stock > 0 and st.below_min""", [tenant_id]).fetchall():
         qty = f"{float(s['in_stock']):g}".replace(".", ",")
+        on_order = f"{float(s['on_order']):g}".replace(".", ",")
         out.append({
-            "key": f"stock:{s['id']}:{s['in_stock']}", "kind": "stock_low", "severity": "watch",
+            "key": f"stock:{s['id']}:{s['in_stock']}:{s['on_order']}", "kind": "stock_low", "severity": "watch",
             "title": f"{s['name']} stoğu düşük",
-            "body": f"Depoda {qty} {s['unit']}, kritik seviye {s['min_stock']}",
+            "body": f"Depoda {qty} {s['unit']}, kritik seviye {s['min_stock']}"
+                    + (f", siparişte {on_order} {s['unit']}" if float(s["on_order"]) > 0 else ""),
             "link": {"type": "stock", "id": str(s["id"])}, "at": None})
+
+    # 3b) Yaklaşan değişim için sipariş ihtiyacı: "LD-07 için 2 lastik yaklaşıyor, stokta 1 var"
+    for n in conn.execute(
+        """select part_id as id, name, unit, category_code, upcoming, items, in_stock, on_order, requested, need
+             from public.v_purchase_needs where tenant_id = %s and upcoming > 0 and need > 0""", [tenant_id]).fetchall():
+        assets = sorted({i["asset_code"] for i in (n["items"] or []) if i.get("asset_code")})
+        where = ", ".join(assets[:3]) + (" ve diğerleri" if len(assets) > 3 else "")
+        cat = CAT_TR.get(n["category_code"], "parça")
+        stock_txt = f"stokta {_n(n['in_stock'])} var" if float(n["in_stock"]) > 0 else "stokta yok"
+        extra = (f", siparişte {_n(n['on_order'])}" if float(n["on_order"]) > 0 else "") + \
+                (f", talepte {_n(n['requested'])}" if float(n["requested"]) > 0 else "")
+        out.append({
+            "key": f"need:{n['id']}:{n['upcoming']}:{n['in_stock']}:{n['on_order']}", "kind": "purchase_need", "severity": "watch",
+            "title": f"{where} için {n['upcoming']} {cat} yaklaşıyor, {stock_txt}",
+            "body": f"{n['name']}: önerilen sipariş {_n(n['need'])} {n['unit']}{extra}",
+            "link": {"type": "purchasing", "id": str(n["id"])}, "at": None})
+
+    # 3c) Teslimatı geciken siparişler
+    for o in conn.execute(
+        """select o.id, o.number, o.expected_at, s.name as supplier, current_date - o.expected_at as late_days
+             from public.purchase_orders o left join public.suppliers s on s.id = o.supplier_id
+            where o.tenant_id = %s and o.status in ('ordered', 'partial') and o.expected_at < current_date""", [tenant_id]).fetchall():
+        out.append({
+            "key": f"po:{o['id']}:late:{o['expected_at'].isoformat()}", "kind": "po_late", "severity": "watch",
+            "title": f"{o['number']} teslimatı gecikti",
+            "body": f"{o['supplier'] or 'Tedarikçi'}, beklenen {o['expected_at'].strftime('%d.%m.%Y')}, {o['late_days']} gün gecikme",
+            "link": {"type": "order", "id": str(o["id"])}, "at": None})
 
     # 4) Uzun süredir kontrol edilmeyen makineler
     limit = datetime.now(timezone.utc) - timedelta(days=stale_days)

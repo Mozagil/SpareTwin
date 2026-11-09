@@ -23,6 +23,13 @@ import type {
   Site,
   Template,
   Thresholds,
+  PurchaseNeed,
+  PurchaseOrder,
+  PurchaseOrderDetail,
+  PurchaseOrderIn,
+  ReceiveIn,
+  Supplier,
+  SupplierIn,
   TireCost,
   Wear,
 } from "./types";
@@ -280,6 +287,55 @@ export function useStockActions() {
     transfer: useMutation({
       mutationFn: (b: { part_id: string; from_site_id: string | null; to_site_id: string | null; qty: number; notes?: string | null }) =>
         api("/stock/transfer", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
+  };
+}
+
+// ---------- Satınalma (Faz 2) ----------
+export const useSuppliers = (includeInactive = false) =>
+  useQuery({ queryKey: ["suppliers", includeInactive],
+             queryFn: () => api<Supplier[]>("/purchasing/suppliers", { query: { include_inactive: includeInactive || undefined } }) });
+
+export const useNeeds = () => useQuery({ queryKey: ["needs"], queryFn: () => api<PurchaseNeed[]>("/purchasing/needs") });
+
+export const usePurchaseOrders = (f: { status?: string; open_only?: boolean; q?: string }) =>
+  useQuery({ queryKey: ["orders", "list", f],
+             queryFn: () => api<PurchaseOrder[]>("/purchasing/orders", { query: { ...f, open_only: f.open_only || undefined } }) });
+
+export const usePurchaseOrder = (id: string | undefined) =>
+  useQuery({ queryKey: ["orders", "one", id], queryFn: () => api<PurchaseOrderDetail>(`/purchasing/orders/${id}`), enabled: !!id });
+
+export function usePurchaseActions() {
+  const qc = useQueryClient();
+  const refresh = () => Promise.all(
+    ["orders", "needs", "suppliers", "stock", "parts", "catalog-parts", "notifications", "audit"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  return {
+    createOrder: useMutation({
+      mutationFn: (b: PurchaseOrderIn) => api<PurchaseOrderDetail>("/purchasing/orders", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
+    updateOrder: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: Partial<PurchaseOrderIn> }) =>
+        api<PurchaseOrderDetail>(`/purchasing/orders/${id}`, { method: "PATCH", body }),
+      onSuccess: refresh,
+    }),
+    setStatus: useMutation({
+      mutationFn: ({ id, status }: { id: string; status: "ordered" | "cancelled" | "received" }) =>
+        api<PurchaseOrderDetail>(`/purchasing/orders/${id}/status`, { method: "POST", body: { status } }),
+      onSuccess: refresh,
+    }),
+    receive: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: ReceiveIn }) =>
+        api<PurchaseOrderDetail>(`/purchasing/orders/${id}/receive`, { method: "POST", body }),
+      onSuccess: refresh,
+    }),
+    createSupplier: useMutation({
+      mutationFn: (b: SupplierIn) => api<Supplier>("/purchasing/suppliers", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
+    updateSupplier: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: SupplierIn }) => api<Supplier>(`/purchasing/suppliers/${id}`, { method: "PATCH", body }),
       onSuccess: refresh,
     }),
   };

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useAsset, useAssets, useCatalogParts, useOrganization, useParts, useTireCost } from "../api/hooks";
+import { useAsset, useAssets, useNeeds, useOrganization, useParts, useTireCost } from "../api/hooks";
 import type { AssetSummary, Position } from "../api/types";
 import { MachineSchematic } from "../components/MachineSchematic";
 import { ReportButton } from "../components/ReportButton";
 import { PartTwin } from "../components/PartActions";
 import { Empty, ErrorNote, Loading, Panel } from "../components/ui";
 import { LAYOUT_LABEL, categoryLabel, num, pct, usd } from "../lib/format";
+import { needWhy } from "../lib/purchasing";
 
 function FleetStrip({ assets, selected, onSelect }: {
   assets: AssetSummary[]; selected: string | null; onSelect: (id: string) => void;
@@ -49,7 +50,7 @@ function FleetStrip({ assets, selected, onSelect }: {
 function Priorities() {
   const crit = useParts({ band: "critical", status: "installed" });
   const watch = useParts({ band: "watch", status: "installed" });
-  const catalog = useCatalogParts();
+  const needs = useNeeds();
   const navigate = useNavigate();
 
   const items = useMemo(() => {
@@ -70,18 +71,19 @@ function Priorities() {
         to: `/parca/${p.id}`,
         action: p.category_code === "tire" ? "Değişim planla" : "İncele",
       }));
-    const low = (catalog.data ?? [])
-      .filter((c) => c.min_stock > 0 && c.in_stock < c.min_stock)
-      .map((c) => ({
-        key: `stock-${c.id}`,
+    // Sipariş ihtiyacı: yaklaşan değişim + kritik seviye, stoktaki ve siparişteki düşülmüş (Satınalma)
+    const low = (needs.data ?? [])
+      .filter((n) => Number(n.need) > 0)
+      .map((n) => ({
+        key: `need-${n.part_id}`,
         band: "watch" as const,
-        what: `${c.name} stok seviyesi`,
-        why: `Depoda ${num(c.in_stock)} ${c.unit ?? "adet"} var, kritik seviye ${c.min_stock}.`,
-        to: `/stok?kalem=${c.id}`,
-        action: "Stoğa git",
+        what: `${n.name}: ${num(Number(n.need))} ${n.unit} sipariş ihtiyacı`,
+        why: needWhy(n),
+        to: `/satinalma?yeni=${n.part_id}`,
+        action: "Talep aç",
       }));
     return [...rows.slice(0, 2), ...low.slice(0, 2), ...rows.slice(2)].slice(0, 7);
-  }, [crit.data, watch.data, catalog.data]);
+  }, [crit.data, watch.data, needs.data]);
 
   return (
     <Panel className="a-prio" title="Öncelikli işler" sub="Kalan ömre göre sıralı; en acil olan en üstte">

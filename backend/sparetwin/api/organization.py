@@ -21,6 +21,7 @@ class Thresholds(BaseModel):
     watch_pct: float = Field(DEFAULT_THRESHOLDS["watch_pct"], description="Bu yüzdenin altında: izlemede")
     rim_due_soon_pct: float = Field(DEFAULT_THRESHOLDS["rim_due_soon_pct"], description="NDT periyodunun bu yüzdesi dolunca 'yaklaşıyor'")
     inspection_interval_days: float = Field(DEFAULT_THRESHOLDS["inspection_interval_days"], description="Bu kadar gün kontrol edilmeyen makine bildirilir")
+    need_horizon_hours: float = Field(DEFAULT_THRESHOLDS["need_horizon_hours"], description="Bu kadar saat içinde ömrü biten takılı parça sipariş ihtiyacına girer")
 
     @model_validator(mode="after")
     def _ranges(self):

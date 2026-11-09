@@ -10,6 +10,8 @@ export const THRESHOLD_FIELDS: { key: keyof Thresholds; label: string; hint: str
     hint: "NDT periyodunun bu kadarı dolunca jant 'yaklaşıyor' olur. Örn. 4.000 saatlik periyotta %90 = 3.600 saat" },
   { key: "inspection_interval_days", label: "Kontrol aralığı", unit: "gün", min: 1, max: 365,
     hint: "Bu kadar gün saha kontrolü yapılmayan makine bildirilir" },
+  { key: "need_horizon_hours", label: "Değişim ufku", unit: "saat", min: 24, max: 20000,
+    hint: "Bu kadar saat içinde ömrü biten takılı parça sipariş ihtiyacına girer (Satınalma › İhtiyaç)" },
 ];
 
 export type ThresholdForm = Record<keyof Thresholds, string>;
@@ -19,6 +21,7 @@ export const toForm = (t: Thresholds): ThresholdForm => ({
   watch_pct: String(t.watch_pct),
   rim_due_soon_pct: String(t.rim_due_soon_pct),
   inspection_interval_days: String(t.inspection_interval_days),
+  need_horizon_hours: String(t.need_horizon_hours),
 });
 
 const parse = (s: string) => {
@@ -46,14 +49,14 @@ export function validateThresholds(f: ThresholdForm): { errors: Partial<Threshol
 export const ENTITY_LABEL: Record<string, string> = {
   auth: "Oturum", parts: "Parça", assets: "Makine", stock: "Stok", inspections: "Kontrol", organization: "Firma ayarları",
   notifications: "Bildirim", registry: "Kayıt", imports: "İçe aktarma", images: "Görsel", labels: "Etiket", catalog: "Katalog",
-  sites: "Saha", rims: "Jant",
+  sites: "Saha", rims: "Jant", purchasing: "Satınalma",
 };
 export const ACTION_LABEL: Record<string, string> = {
   login: "giriş yaptı", password: "parola değiştirdi", create: "oluşturdu", update: "güncelledi", delete: "sildi",
   install: "taktı", remove: "söktü", move: "yer değiştirdi", rotate: "rotasyon yaptı", events: "olay kaydetti",
   meter: "motor saati girdi", state: "bildirim durumu değiştirdi", complete: "kontrolü tamamladı", cancel: "kontrolü iptal etti",
   measurements: "ölçüm girdi", photos: "fotoğraf yükledi", movements: "stok hareketi girdi", image: "görsel yükledi",
-  commit: "içe aktardı", preview: "içe aktarma önizledi", status: "durum değiştirdi",
+  commit: "içe aktardı", preview: "içe aktarma önizledi", status: "durum değiştirdi", receive: "teslim aldı",
 };
 export const describeAudit = (entity: string | null, action: string | null) =>
   `${ENTITY_LABEL[entity ?? ""] ?? entity ?? ""} · ${ACTION_LABEL[action ?? ""] ?? action ?? ""}`.replace(/^ · | · $/g, "");

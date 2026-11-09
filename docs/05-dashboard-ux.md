@@ -13,7 +13,7 @@ Uygulama: `frontend/` (Codespace'te `make dev`, 5173 portu). İlk tasarım tasla
 | Filo şeridi | Hangi makinede sorun var? |
 | Makine şeması | Bu makinenin hangi parçası? |
 | Parça ikizi | Bu parçanın hikâyesi ne, ne kadar ömrü kaldı? |
-| Öncelikli işler | Bugün ne yapmalıyım? |
+| Öncelikli işler | Bugün ne yapmalıyım? (kritik parçalar ve sipariş ihtiyacı) |
 | Saat başı maliyet | Hangi makine bize pahalıya patlıyor? |
 
 **Sayı değil karar.** "Diş 14 mm" yerine "bu hızla yaklaşık 539 saat kaldı". "Ömür %95" yerine "Bakım emri aç" düğmesi. Her uyarı bir eyleme bağlanır.
@@ -58,6 +58,7 @@ Durum renkleri her zaman metinle birlikte kullanılır (renk körlüğü): "Krit
 | Bildirimler | Üst çubukta zil | 1 | ✅ | `GET /notifications`, `POST /notifications/read`; ekip durumu (üstlen / gizle / geri al) `POST /notifications/state` |
 | PDF durum raporu | Filo ve makine sayfalarında "PDF rapor" düğmesi | 1 | ✅ | `GET /reports/fleet.pdf?asset_id=&site_id=` |
 | Stok | `/stok` | 2 | ✅ | `GET /stock`, `GET /stock/{id}/movements`, `POST /stock/movements`, `POST /stock/transfer` |
+| Satınalma | `/satinalma` | 2 | ✅ | İhtiyaç `GET /purchasing/needs`; talep/sipariş `GET/POST/PATCH /purchasing/orders`, `POST .../status`, `POST .../receive`; tedarikçi `GET/POST/PATCH /purchasing/suppliers` |
 | Bakım planı | `/bakim` | 2 | | Faz 2 |
 | Ayarlar | `/ayarlar` | 1 | 🟡 | ✅ firma adı ve uyarı eşikleri `GET/PATCH /organization`, denetim kaydı `GET /audit` (yönetici). ⏳ kullanıcılar, kategoriler, şablonlar (Faz 2–3) |
 
