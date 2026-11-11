@@ -15,7 +15,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from . import __version__, audit
 from .api import (
-    auth, fleet, images, imports, inspections, labels, lifecycle, media, notifications, organization, purchasing, registry, stock,
+    auth, fleet, images, imports, inspections, labels, lifecycle, maintenance, media, notifications, organization, purchasing,
+    registry, stock, tco,
 )
 from .config import Settings, get_settings
 from .db import close_pool, http_status_for, init_pool, owner_tx, user_message_for
@@ -89,7 +90,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok", "version": __version__, "mode": settings.deployment_mode}
 
     for r in (auth.router, fleet.router, registry.router, images.router, lifecycle.router, inspections.router,
-              media.router, labels.router, imports.router, notifications.router, stock.router, organization.router, purchasing.router):
+              media.router, labels.router, imports.router, notifications.router, stock.router, organization.router, purchasing.router,
+              maintenance.router, tco.router):
         app.include_router(r)
     audit.install(app)  # durum değiştiren her isteği denetim kaydına yazar
     return app

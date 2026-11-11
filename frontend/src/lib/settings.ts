@@ -12,6 +12,12 @@ export const THRESHOLD_FIELDS: { key: keyof Thresholds; label: string; hint: str
     hint: "Bu kadar gün saha kontrolü yapılmayan makine bildirilir" },
   { key: "need_horizon_hours", label: "Değişim ufku", unit: "saat", min: 24, max: 20000,
     hint: "Bu kadar saat içinde ömrü biten takılı parça sipariş ihtiyacına girer (Satınalma › İhtiyaç)" },
+  { key: "maint_warn_hours", label: "Bakım yaklaşıyor (saat)", unit: "saat", min: 1, max: 2000,
+    hint: "Saat bazlı bakıma bu kadar saat kala 'yaklaşıyor' olur; bildirim ve dashboard'da görünür" },
+  { key: "maint_warn_days", label: "Bakım yaklaşıyor (gün)", unit: "gün", min: 1, max: 90,
+    hint: "Takvim bazlı bakıma bu kadar gün kala 'yaklaşıyor' olur" },
+  { key: "downtime_cost_per_hour", label: "Duruş saat maliyeti", unit: "$/saat", min: 0, max: 100000,
+    hint: "Arızalı makinenin saat başı kaybı. Maliyet raporunda duruş süresi bu değerle çarpılır; 0 ise duruş maliyeti hesaplanmaz" },
 ];
 
 export type ThresholdForm = Record<keyof Thresholds, string>;
@@ -22,6 +28,9 @@ export const toForm = (t: Thresholds): ThresholdForm => ({
   rim_due_soon_pct: String(t.rim_due_soon_pct),
   inspection_interval_days: String(t.inspection_interval_days),
   need_horizon_hours: String(t.need_horizon_hours),
+  maint_warn_hours: String(t.maint_warn_hours),
+  maint_warn_days: String(t.maint_warn_days),
+  downtime_cost_per_hour: String(t.downtime_cost_per_hour),
 });
 
 const parse = (s: string) => {
@@ -49,7 +58,7 @@ export function validateThresholds(f: ThresholdForm): { errors: Partial<Threshol
 export const ENTITY_LABEL: Record<string, string> = {
   auth: "Oturum", parts: "Parça", assets: "Makine", stock: "Stok", inspections: "Kontrol", organization: "Firma ayarları",
   notifications: "Bildirim", registry: "Kayıt", imports: "İçe aktarma", images: "Görsel", labels: "Etiket", catalog: "Katalog",
-  sites: "Saha", rims: "Jant", purchasing: "Satınalma",
+  sites: "Saha", rims: "Jant", purchasing: "Satınalma", maintenance: "Bakım",
 };
 export const ACTION_LABEL: Record<string, string> = {
   login: "giriş yaptı", password: "parola değiştirdi", create: "oluşturdu", update: "güncelledi", delete: "sildi",

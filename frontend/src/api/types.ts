@@ -334,11 +334,11 @@ export interface RimRow {
 
 export interface Notification {
   key: string;
-  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing" | "purchase_need" | "po_late";
+  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing" | "purchase_need" | "po_late" | "maintenance_due" | "asset_down";
   severity: "critical" | "watch";
   title: string;
   body: string;
-  link: { type: "part" | "rim" | "stock" | "asset" | "purchasing" | "order"; id: string };
+  link: { type: "part" | "rim" | "stock" | "asset" | "purchasing" | "order" | "maintenance" | "work_order"; id: string };
   at: string | null;
   read: boolean;
   /** Ekip bazlı durum: üstlenildi / gizlendi / yok. Durum değişince kendiliğinden düşer. */
@@ -361,6 +361,9 @@ export interface Thresholds {
   rim_due_soon_pct: number;
   inspection_interval_days: number;
   need_horizon_hours: number;
+  maint_warn_hours: number;
+  maint_warn_days: number;
+  downtime_cost_per_hour: number;
 }
 export interface Organization {
   id: string;
@@ -542,4 +545,208 @@ export interface ReceiveIn {
   site_id: string | null;
   ref: string | null;
   lines: { line_id: number; qty: number; serials?: { serial_no: string | null; qr_code?: string | null }[] }[];
+}
+
+// ---------- Bakım (Faz 2) ----------
+export type WoKind = "planned" | "breakdown";
+export type WoStatus = "open" | "in_progress" | "done" | "cancelled";
+export type DueState = "overdue" | "due_soon" | "ok";
+export type ReasonCode = "hydraulic" | "electrical" | "engine" | "tire" | "transmission" | "structural" | "operator" | "other";
+
+export interface PlanPart { part_id: string; name: string; unit: Unit; qty: number; is_serialized: boolean }
+
+export interface MaintenancePlan {
+  id: string;
+  name: string;
+  asset_id: string | null;
+  asset_code: string | null;
+  model_id: string | null;
+  model_name: string | null;
+  interval_hours: number | null;
+  interval_days: number | null;
+  checklist: string[];
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  /** Planın kapsadığı (emekli olmayan) makine sayısı */
+  asset_count: number;
+  parts: PlanPart[];
+}
+
+export interface MaintenancePlanIn {
+  name: string;
+  asset_id: string | null;
+  model_id: string | null;
+  interval_hours: number | null;
+  interval_days: number | null;
+  checklist: string[];
+  notes: string | null;
+  is_active: boolean;
+  parts: { part_id: string; qty: number }[];
+}
+
+export interface MaintenanceDue {
+  plan_id: string;
+  name: string;
+  interval_hours: number | null;
+  interval_days: number | null;
+  checklist: string[];
+  asset_id: string;
+  asset_code: string;
+  meter_hours: number;
+  asset_status: string;
+  site_id: string | null;
+  last_done_at: string | null;
+  last_done_hours: number | null;
+  last_done_number: string | null;
+  next_due_hours: number | null;
+  next_due_at: string | null;
+  hours_left: number | null;
+  days_left: number | null;
+  hours_per_day: number | null;
+  /** Saat bazlı bakım için günlük kullanımdan tahmini tarih; takvimde hedef tarih */
+  eta_at: string | null;
+  state: DueState;
+  open_work_order_id: string | null;
+  open_work_order_number: string | null;
+  open_work_order_status: WoStatus | null;
+}
+
+export interface WorkOrder {
+  id: string;
+  number: string;
+  kind: WoKind;
+  status: WoStatus;
+  title: string;
+  asset_id: string;
+  asset_code: string;
+  asset_meter_hours: number;
+  plan_id: string | null;
+  plan_name: string | null;
+  due_at: string | null;
+  due_hours: number | null;
+  down_from: string | null;
+  down_to: string | null;
+  downtime_minutes: number | null;
+  reason_code: ReasonCode | null;
+  part_item_id: string | null;
+  part_serial_no: string | null;
+  part_name: string | null;
+  asset_hours_at_done: number | null;
+  labor_cost: number | null;
+  external_cost: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by_name: string | null;
+  assigned_to_name: string | null;
+  completed_by_name: string | null;
+  assigned_to: string | null;
+  description: string | null;
+  part_count: number;
+  parts_cost: number | null;
+  late: boolean;
+}
+
+export interface WorkOrderPart {
+  id: number;
+  part_id: string;
+  name: string;
+  unit: Unit;
+  qty: number;
+  site_id: string | null;
+  site_name: string | null;
+  unit_cost: number | null;
+  in_stock: number;
+}
+
+export interface WorkOrderDetail extends WorkOrder {
+  parts: WorkOrderPart[];
+  checklist: string[] | null;
+}
+
+export interface WoPartIn { part_id: string; qty: number; site_id: string | null }
+export interface WorkOrderIn {
+  asset_id: string;
+  kind: WoKind;
+  plan_id: string | null;
+  title: string | null;
+  description: string | null;
+  due_at: string | null;
+  due_hours: number | null;
+  down_from: string | null;
+  reason_code: ReasonCode | null;
+  part_item_id: string | null;
+  parts: WoPartIn[] | null;
+}
+export interface WorkOrderPatch {
+  title?: string;
+  description?: string | null;
+  due_at?: string | null;
+  due_hours?: number | null;
+  down_from?: string | null;
+  reason_code?: ReasonCode | null;
+  part_item_id?: string | null;
+  labor_cost?: number | null;
+  external_cost?: number | null;
+  parts?: WoPartIn[];
+}
+export interface WoStatusIn {
+  status: "in_progress" | "done" | "cancelled";
+  asset_hours?: number | null;
+  down_to?: string | null;
+  labor_cost?: number | null;
+  external_cost?: number | null;
+  notes?: string | null;
+}
+
+export interface AssetMaintenance {
+  asset_id: string;
+  asset_code: string;
+  asset_status: string;
+  planned_done: number;
+  breakdowns: number;
+  open_orders: number;
+  downtime_minutes: number;
+  cost_12m: number;
+  last_done_at: string | null;
+}
+
+// ---------- Maliyet raporu (TCO) ----------
+export interface TcoCosts {
+  parts_cost: number;
+  consumables_cost: number;
+  labor_cost: number;
+  external_cost: number;
+  downtime_cost: number;
+  total: number;
+}
+export interface TcoRow extends TcoCosts {
+  asset_id: string;
+  asset_code: string;
+  asset_status: string;
+  site_id: string | null;
+  site_name: string | null;
+  model_name: string | null;
+  downtime_minutes: number;
+  planned_done: number;
+  breakdowns: number;
+  hours_worked: number;
+  /** Saat kaydının başladığı an; dönem başından sonraysa saat başı maliyet eksik saate bölünmüştür */
+  hours_from: string | null;
+  cost_per_hour: number | null;
+  /** Geçerli duruş saat maliyeti: makineye özel oran, yoksa firma oranı */
+  downtime_rate: number;
+  downtime_rate_own: boolean;
+}
+export interface TcoReport {
+  months: number;
+  from: string;
+  to: string;
+  currency: string;
+  downtime_cost_per_hour: number;
+  totals: TcoCosts & { downtime_minutes: number; hours_worked: number; cost_per_hour: number | null };
+  assets: TcoRow[];
 }

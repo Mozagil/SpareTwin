@@ -114,7 +114,7 @@ Faz 2 ve Faz 4'te bu modelin önüne tedarik ve üretim tarafı bağlanır. Tasl
 
 | Faz | Tablolar | Bağlantı noktası |
 |---|---|---|
-| 2 | ✅ `stock_movements` (depo = `sites`, `0012`); ✅ `suppliers`, `purchase_orders` (talep ve sipariş aynı tabloda, `status`), `purchase_order_lines`, `purchase_receipts` (`0014`); ⏳ `maintenance_plans`, `work_orders` (bakım) | `parts.min_stock`, `part_items.status = in_stock`, `v_purchase_needs` |
+| 2 | ✅ `stock_movements` (depo = `sites`, `0012`); ✅ `suppliers`, `purchase_orders` (talep ve sipariş aynı tabloda, `status`), `purchase_order_lines`, `purchase_receipts` (`0014`); ✅ `maintenance_plans`, `maintenance_plan_parts`, `work_orders`, `work_order_parts` (`0015`) | `parts.min_stock`, `part_items.status = in_stock`, `v_purchase_needs`, `v_maintenance_due`, `v_asset_maintenance`, `asset_tco()` (`0016`, tablo eklemez; `0017` `assets.downtime_cost_per_hour`) |
 | 4 | `boms`, `bom_lines`, `routings`, `production_orders`, `scrap_records` | `parts` aynı katalog; üretilen makine `assets` olarak doğar |
 
 Böylece bir makine imalatçısı ürettiği makineyi müşteriye teslim ettiğinde, o makinenin parça ikizleri hazır olarak müşteri tarafına geçebilir. Bu, uzun vadede ürünün en güçlü farklılaştırıcısı olabilir.

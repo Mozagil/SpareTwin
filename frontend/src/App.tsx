@@ -8,6 +8,7 @@ import { InspectionPage } from "./pages/InspectionPage";
 import { InspectionStartPage } from "./pages/InspectionStartPage";
 import { LabelsPage } from "./pages/LabelsPage";
 import { LoginPage, TenantPicker } from "./pages/LoginPage";
+import { MaintenancePage } from "./pages/MaintenancePage";
 import { PartPage } from "./pages/PartPage";
 import { PartsPage } from "./pages/PartsPage";
 import { PurchasingPage } from "./pages/PurchasingPage";
@@ -34,6 +35,7 @@ export function App() {
           <Route path="jantlar" element={<RimsPage />} />
           <Route path="stok" element={<StockPage />} />
           <Route path="satinalma" element={<PurchasingPage />} />
+          <Route path="bakim" element={<MaintenancePage />} />
           <Route path="kontrol" element={<InspectionStartPage />} />
           <Route path="kontrol/:id" element={<InspectionPage />} />
           <Route path="ayarlar" element={<SettingsPage />} />

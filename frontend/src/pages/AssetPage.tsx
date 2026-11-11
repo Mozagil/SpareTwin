@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { MachineSchematic } from "../components/MachineSchematic";
 import { InstallModal, PartTwin, RemoveModal } from "../components/PartActions";
 import { ImageBox } from "../components/Images";
+import { AssetMaintenance } from "../components/AssetMaintenance";
 import { ReportButton } from "../components/ReportButton";
 import { BandChip, ErrorNote, Loading, Modal, Field, Panel } from "../components/ui";
 import { LAYOUT_LABEL, categoryLabel, date, num, pct } from "../lib/format";
@@ -129,6 +130,8 @@ export function AssetPage() {
           </table>
         </div>
       </Panel>
+
+      <AssetMaintenance assetId={a.id} assetCode={a.code} />
 
       {modal?.kind === "meter" && <MeterModal assetId={a.id} current={a.meter_hours} onClose={() => setModal(null)} />}
       {modal?.kind === "install" && modal.pos && (

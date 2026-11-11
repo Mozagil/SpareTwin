@@ -13,6 +13,8 @@ export function notificationPath(n: Notification): string {
     case "stock": return `/stok?kalem=${n.link.id}`;
     case "purchasing": return "/satinalma?sekme=ihtiyac";
     case "order": return `/satinalma?sekme=siparisler&siparis=${n.link.id}`;
+    case "maintenance": return `/bakim?sekme=takvim&makine=${n.link.id}`;
+    case "work_order": return `/bakim?sekme=emirler&emir=${n.link.id}`;
   }
 }
 

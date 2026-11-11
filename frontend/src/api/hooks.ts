@@ -23,6 +23,16 @@ import type {
   Site,
   Template,
   Thresholds,
+  MaintenanceDue,
+  MaintenancePlan,
+  MaintenancePlanIn,
+  AssetMaintenance,
+  TcoReport,
+  WorkOrder,
+  WorkOrderDetail,
+  WorkOrderIn,
+  WorkOrderPatch,
+  WoStatusIn,
   PurchaseNeed,
   PurchaseOrder,
   PurchaseOrderDetail,
@@ -336,6 +346,66 @@ export function usePurchaseActions() {
     }),
     updateSupplier: useMutation({
       mutationFn: ({ id, body }: { id: string; body: SupplierIn }) => api<Supplier>(`/purchasing/suppliers/${id}`, { method: "PATCH", body }),
+      onSuccess: refresh,
+    }),
+  };
+}
+
+// ---------- Bakım (Faz 2) ----------
+export const useMaintenancePlans = (f: { include_inactive?: boolean; asset_id?: string } = {}) =>
+  useQuery({ queryKey: ["maintenance", "plans", f],
+             queryFn: () => api<MaintenancePlan[]>("/maintenance/plans", { query: { ...f, include_inactive: f.include_inactive || undefined } }) });
+
+export const useMaintenanceDue = (f: { asset_id?: string; state?: string } = {}) =>
+  useQuery({ queryKey: ["maintenance", "due", f], queryFn: () => api<MaintenanceDue[]>("/maintenance/due", { query: { ...f } }) });
+
+export const useMaintenanceSummary = () =>
+  useQuery({ queryKey: ["maintenance", "summary"], queryFn: () => api<AssetMaintenance[]>("/maintenance/summary") });
+
+// "maintenance" anahtarının altında: iş emri, stok ya da ayar değişince rapor da tazelenir
+export const useTco = (f: { months: number; site_id?: string }) =>
+  useQuery({ queryKey: ["maintenance", "tco", f], queryFn: () => api<TcoReport>("/reports/tco", { query: { ...f } }) });
+
+/** Makineye özel duruş saat maliyeti; null firma oranına döndürür. */
+export function useSetDowntimeRate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { assetId: string; rate: number | null }) =>
+      api(`/assets/${v.assetId}`, { method: "PATCH", body: { downtime_cost_per_hour: v.rate } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance", "tco"] }),
+  });
+}
+
+export const useWorkOrders = (f: { status?: string; kind?: string; asset_id?: string; open_only?: boolean; q?: string }) =>
+  useQuery({ queryKey: ["work-orders", "list", f],
+             queryFn: () => api<WorkOrder[]>("/maintenance/work-orders", { query: { ...f, open_only: f.open_only || undefined } }) });
+
+export const useWorkOrder = (id: string | undefined) =>
+  useQuery({ queryKey: ["work-orders", "one", id], queryFn: () => api<WorkOrderDetail>(`/maintenance/work-orders/${id}`), enabled: !!id });
+
+export function useMaintenanceActions() {
+  const qc = useQueryClient();
+  const refresh = () => Promise.all(
+    ["maintenance", "work-orders", "assets", "asset", "stock", "notifications", "audit"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  return {
+    createPlan: useMutation({
+      mutationFn: (b: MaintenancePlanIn) => api<MaintenancePlan>("/maintenance/plans", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
+    updatePlan: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: MaintenancePlanIn }) => api<MaintenancePlan>(`/maintenance/plans/${id}`, { method: "PATCH", body }),
+      onSuccess: refresh,
+    }),
+    createWorkOrder: useMutation({
+      mutationFn: (b: WorkOrderIn) => api<WorkOrderDetail>("/maintenance/work-orders", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
+    updateWorkOrder: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: WorkOrderPatch }) => api<WorkOrderDetail>(`/maintenance/work-orders/${id}`, { method: "PATCH", body }),
+      onSuccess: refresh,
+    }),
+    setWorkOrderStatus: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: WoStatusIn }) => api<WorkOrderDetail>(`/maintenance/work-orders/${id}/status`, { method: "POST", body }),
       onSuccess: refresh,
     }),
   };

@@ -32,7 +32,7 @@ SKIP_METHODS = {"GET", "HEAD", "OPTIONS"}
 SKIP_PATHS = {"/auth/refresh", "/notifications/read"}
 METHOD_ACTION = {"POST": "create", "PUT": "update", "PATCH": "update", "DELETE": "delete"}
 # Varlık altındaki koleksiyonlar: /purchasing/orders → eylem "orders" değil, yöntemden (create) gelir
-SUB_COLLECTIONS = {"orders", "suppliers"}
+SUB_COLLECTIONS = {"orders", "suppliers", "plans", "work-orders"}
 
 
 def describe(method: str, path: str) -> tuple[str | None, UUID | None, str | None]:

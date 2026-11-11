@@ -101,6 +101,42 @@ def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
             "body": f"{o['supplier'] or 'Tedarikçi'}, beklenen {o['expected_at'].strftime('%d.%m.%Y')}, {o['late_days']} gün gecikme",
             "link": {"type": "order", "id": str(o["id"])}, "at": None})
 
+    # 3d) Sıradaki bakım yaklaşıyor ya da gecikti (açık emri olanlar emir listesinde zaten görünür)
+    for m in conn.execute(
+        """select plan_id, asset_id, asset_code, name, state, interval_hours, interval_days, meter_hours,
+                  last_done_hours, last_done_at, next_due_hours, next_due_at, hours_left, days_left, eta_at
+             from public.v_maintenance_due
+            where tenant_id = %s and state in ('overdue', 'due_soon') and open_work_order_id is null""", [tenant_id]).fetchall():
+        overdue = m["state"] == "overdue"
+        parts = []
+        if m["next_due_hours"] is not None:
+            parts.append(f"sıradaki {_n(m['next_due_hours'])} saatte, makine {_n(m['meter_hours'])} saatte"
+                         + (f" ({_n(-m['hours_left'])} saat geçti)" if m["hours_left"] < 0 else f" ({_n(m['hours_left'])} saat kaldı)"))
+        if m["next_due_at"] is not None:
+            parts.append(f"tarih {m['next_due_at'].strftime('%d.%m.%Y')}"
+                         + (f" ({-m['days_left']} gün geçti)" if m["days_left"] < 0 else f" ({m['days_left']} gün kaldı)"))
+        last = (f"Son bakım {_n(m['last_done_hours'])} saatte" if m["last_done_hours"] is not None
+                else f"Son bakım {m['last_done_at'].strftime('%d.%m.%Y')}" if m["last_done_at"] else "Hiç yapılmadı")
+        out.append({
+            "key": f"maint:{m['plan_id']}:{m['asset_id']}:{m['state']}:{m['next_due_hours']}:{m['next_due_at']}",
+            "kind": "maintenance_due", "severity": "critical" if overdue else "watch",
+            "title": f"{m['asset_code']} {m['name']} {'gecikti' if overdue else 'yaklaşıyor'}",
+            "body": f"{last}; " + "; ".join(parts),
+            "link": {"type": "maintenance", "id": str(m["asset_id"])}, "at": None})
+
+    # 3e) Arızalı makineler: açık arıza emri
+    for w in conn.execute(
+        """select w.id, w.number, w.title, w.status, w.reason_code, a.code,
+                  round(extract(epoch from (now() - w.down_from)) / 3600) as down_hours
+             from public.work_orders w join public.assets a on a.id = w.asset_id
+            where w.tenant_id = %s and w.kind = 'breakdown' and w.status in ('open', 'in_progress')""", [tenant_id]).fetchall():
+        out.append({
+            "key": f"down:{w['id']}:{w['status']}", "kind": "asset_down", "severity": "critical",
+            "title": f"{w['code']} arızalı: {w['title']}",
+            "body": f"{w['number']} · {'onarım sürüyor' if w['status'] == 'in_progress' else 'onarım bekliyor'}"
+                    + (f" · {_n(w['down_hours'])} saattir duruyor" if (w["down_hours"] or 0) >= 1 else " · 1 saatten kısa süredir duruyor"),
+            "link": {"type": "work_order", "id": str(w["id"])}, "at": None})
+
     # 4) Uzun süredir kontrol edilmeyen makineler
     limit = datetime.now(timezone.utc) - timedelta(days=stale_days)
     for a in conn.execute(

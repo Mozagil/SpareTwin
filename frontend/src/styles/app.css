@@ -476,3 +476,49 @@ input[aria-invalid="true"] { border-color: var(--critical); }
   .po-line { grid-template-columns: 1fr 1fr; }
   .po-line select:first-child { grid-column: 1 / -1; }
 }
+
+/* ---------- Bakım ---------- */
+.table.due td:nth-child(2) { max-width: 360px; }
+.due-bar { position: relative; height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 6px; overflow: hidden; }
+.due-bar > span { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--c, var(--ok)); }
+.wo-parts { display: grid; gap: 8px; }
+.wo-part { display: grid; grid-template-columns: minmax(180px, 2fr) minmax(90px, 1fr) minmax(140px, 1fr) auto; gap: 8px; align-items: center; }
+.wo-part .wo-part-hint { grid-column: 1 / -1; margin-top: -2px; }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.checklist li { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.checklist li::before { content: ""; width: 14px; height: 14px; border: 1.5px solid var(--line); border-radius: 4px; flex: none; }
+.chip.t-down { --c: var(--critical); }
+.chip.t-in_progress { --c: var(--brand); }
+.asset-maint { display: grid; gap: 10px; }
+.asset-maint .due-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.asset-maint .due-row:first-child { border-top: 0; }
+
+/* ---------- Maliyet raporu (TCO) ---------- */
+/* Kalem renkleri: sabit sırada, açık ve koyu yüzeyde ayrı ayrı doğrulandı (renk körlüğü ayrımı dahil). */
+:root { --tco-1: #2a78d6; --tco-2: #eb6834; --tco-3: #1baf7a; --tco-4: #eda100; --tco-5: #e87ba4; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --tco-1: #3987e5; --tco-2: #d95926; --tco-3: #199e70; --tco-4: #c98500; --tco-5: #d55181; }
+}
+:root[data-theme="dark"] { --tco-1: #3987e5; --tco-2: #d95926; --tco-3: #199e70; --tco-4: #c98500; --tco-5: #d55181; }
+.tco-filters label { display: grid; gap: 4px; }
+.tco-rate { padding: 0; border: 0; background: none; font: inherit; color: var(--muted); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.tco-rate:hover, .tco-rate:focus-visible { color: var(--ink); text-decoration-style: solid; }
+.tco-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.tco-kpi { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--surface-2); min-width: 0; }
+.tco-kpi span, .tco-kpi small { color: var(--muted); font-size: 13px; }
+.tco-kpi strong { font-family: var(--font-cond); font-size: 26px; font-weight: 600; line-height: 1.15; }
+.tco-bar { display: flex; gap: 2px; height: 12px; min-width: 6px; }
+.tco-bar i { display: block; min-width: 2px; }
+.tco-bar i:first-child { border-radius: 4px 0 0 4px; }
+.tco-bar i:last-child { border-radius: 0 4px 4px 0; }
+.tco-bar i:only-child { border-radius: 4px; }
+.tco-bar i:hover { filter: brightness(1.12); }
+.tco-fleet { margin-bottom: 16px; }
+.tco-fleet .tco-bar { height: 16px; }
+.tco-fleet .legend { color: var(--ink); }
+.tco-fleet .legend strong { font-variant-numeric: tabular-nums; }
+.table.tco-table tbody tr { cursor: default; }
+.table.tco-table .tco-col-bar { width: 22%; min-width: 140px; }
+.table.tco-table tfoot td { font-weight: 600; border-top: 2px solid var(--line); border-bottom: 0; }
+.table.tco-table sup { color: var(--watch); cursor: help; }
+.tco-note { margin: 12px 0 0; max-width: 90ch; }

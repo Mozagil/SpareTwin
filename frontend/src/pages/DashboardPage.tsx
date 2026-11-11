@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useAsset, useAssets, useNeeds, useOrganization, useParts, useTireCost } from "../api/hooks";
+import { useAsset, useAssets, useMaintenanceDue, useNeeds, useOrganization, useParts, useTireCost } from "../api/hooks";
 import type { AssetSummary, Position } from "../api/types";
 import { MachineSchematic } from "../components/MachineSchematic";
 import { ReportButton } from "../components/ReportButton";
@@ -8,6 +8,7 @@ import { PartTwin } from "../components/PartActions";
 import { Empty, ErrorNote, Loading, Panel } from "../components/ui";
 import { LAYOUT_LABEL, categoryLabel, num, pct, usd } from "../lib/format";
 import { needWhy } from "../lib/purchasing";
+import { dueWhy } from "../lib/maintenance";
 
 function FleetStrip({ assets, selected, onSelect }: {
   assets: AssetSummary[]; selected: string | null; onSelect: (id: string) => void;
@@ -15,7 +16,11 @@ function FleetStrip({ assets, selected, onSelect }: {
   return (
     <section className="fleet" aria-label="Makineler">
       {assets.map((a) => {
-        const alert = a.critical_parts
+        const alert = a.status === "down"
+          ? <span className="alert t-critical">Arızalı · bakım bekliyor</span>
+          : a.status === "maintenance"
+          ? <span className="alert t-watch">Bakımda</span>
+          : a.critical_parts
           ? <span className="alert t-critical">{a.critical_parts} kritik parça</span>
           : a.watch_parts
             ? <span className="alert t-watch">{a.watch_parts} parça takipte</span>
@@ -51,6 +56,7 @@ function Priorities() {
   const crit = useParts({ band: "critical", status: "installed" });
   const watch = useParts({ band: "watch", status: "installed" });
   const needs = useNeeds();
+  const due = useMaintenanceDue();
   const navigate = useNavigate();
 
   const items = useMemo(() => {
@@ -82,8 +88,21 @@ function Priorities() {
         to: `/satinalma?yeni=${n.part_id}`,
         action: "Talep aç",
       }));
-    return [...rows.slice(0, 2), ...low.slice(0, 2), ...rows.slice(2)].slice(0, 7);
-  }, [crit.data, watch.data, needs.data]);
+    // Sıradaki bakımlar: gecikenler kritik, yaklaşanlar izleme; açık emri olan zaten listede
+    const maint = (due.data ?? [])
+      .filter((d) => d.state !== "ok" && !d.open_work_order_id)
+      .map((d) => ({
+        key: `maint-${d.plan_id}-${d.asset_id}`,
+        band: (d.state === "overdue" ? "critical" : "watch") as "critical" | "watch",
+        what: `${d.asset_code} · ${d.name} ${d.state === "overdue" ? "gecikti" : "yaklaşıyor"}`,
+        why: dueWhy(d),
+        to: `/bakim?yeni=1&makine=${d.asset_id}&plan=${d.plan_id}`,
+        action: "Emir aç",
+      }));
+    const overdue = maint.filter((m) => m.band === "critical");
+    const soon = maint.filter((m) => m.band === "watch");
+    return [...overdue, ...rows.slice(0, 2), ...soon.slice(0, 1), ...low.slice(0, 2), ...rows.slice(2)].slice(0, 7);
+  }, [crit.data, watch.data, needs.data, due.data]);
 
   return (
     <Panel className="a-prio" title="Öncelikli işler" sub="Kalan ömre göre sıralı; en acil olan en üstte">

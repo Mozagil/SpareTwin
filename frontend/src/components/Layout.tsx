@@ -12,6 +12,7 @@ const Icon = {
   label: <path d="M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h2v2h-2zM19 19h2v2h-2zM15 19h2" />,
   stock: <><path d="M3 8l9-5 9 5-9 5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></>,
   cart: <><path d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.8L20 8H6.2" /><circle cx="9.5" cy="20" r="1.3" /><circle cx="17" cy="20" r="1.3" /></>,
+  wrench: <path d="M14.7 6.3a4 4 0 0 0 5 5L13 18a2.5 2.5 0 0 1-3.5 0l-3.5-3.5a2.5 2.5 0 0 1 0-3.5l6.7-6.7zM3 21l4-4" />,
   rim: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.5" /><path d="M12 3v6.5M12 14.5V21M3 12h6.5M14.5 12H21" /></>,
   check: <><path d="M9 4h6v3H9z" /><path d="M7 5H5v16h14V5h-2" /><path d="m9 14 2 2 4-4" /></>,
   settings: <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>,
@@ -66,6 +67,7 @@ export function Layout() {
         {can("technician") && <NavItem to="/kontrol" label="Kontrol" icon="check" />}
         <NavItem to="/jantlar" label="Jantlar" icon="rim" />
         <NavItem to="/stok" label="Stok" icon="stock" />
+        <NavItem to="/bakim" label="Bakım" icon="wrench" />
         <NavItem to="/satinalma" label="Satınalma" icon="cart" />
         <NavItem to="/parcalar" label="Parçalar" icon="parts" />
         {can("technician") && <NavItem to="/kayit" label="Kayıt" icon="add" />}

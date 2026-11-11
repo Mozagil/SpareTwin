@@ -230,6 +230,8 @@ class AssetPatch(BaseModel):
     year: int | None = Field(None, ge=1950, le=2100)
     status: Literal["active", "down", "maintenance", "retired"] | None = None
     notes: str | None = Field(None, max_length=2000)
+    downtime_cost_per_hour: Decimal | None = Field(
+        None, ge=0, le=100000, description="Makineye özel duruş saat maliyeti; null gönderilirse firma oranına döner")
 
 
 def _check_site(conn, site_id: UUID | None, tenant_id: UUID) -> None:
@@ -271,7 +273,7 @@ def update_asset(asset_id: UUID, body: AssetPatch, ctx: TenantCtx):
         row = conn.execute(
             f"""update public.assets set {sets}
                  where id = %(id)s and tenant_id = %(t)s
-             returning id, code, site_id, serial_no, year, status, notes""",
+             returning id, code, site_id, serial_no, year, status, notes, downtime_cost_per_hour""",
             {**fields, "id": asset_id, "t": ctx.tenant_id},
         ).fetchone()
     if not row:
