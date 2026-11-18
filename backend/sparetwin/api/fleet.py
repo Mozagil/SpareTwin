@@ -9,6 +9,7 @@ from fastapi.responses import Response
 
 from .deps import AppStorage, TenantCtx
 from .images import entity_image, image_out, part_photos
+from .lifecycle import REMOVE_REASONS
 
 router = APIRouter(tags=["Filo ve parçalar"])
 
@@ -66,6 +67,9 @@ def get_asset(asset_id: UUID, ctx: TenantCtx, storage: AppStorage):
         model_img = entity_image(conn, storage, ctx.tenant_id, "asset_model", asset["model_id"]) if asset["model_id"] else None
         asset["image"] = ({**own, "source": "asset"} if own
                           else {**model_img, "source": "model"} if model_img else None)
+        # Firmanın şablonuna yüklediği makine resmi; yoksa hazır gövde çizimi kullanılır
+        asset["schematic_image"] = (entity_image(conn, storage, ctx.tenant_id, "position_template", asset["template_id"])
+                                    if asset["template_id"] else None)
         # Şema: her pozisyon ve üzerindeki parça (boş pozisyon da döner)
         asset["positions"] = conn.execute(
             """select tp.code, tp.label, tp.category_code, tp.axle, tp.x, tp.y,
@@ -80,6 +84,20 @@ def get_asset(asset_id: UUID, ctx: TenantCtx, storage: AppStorage):
                 order by tp.sort_order""",
             [asset_id, asset["template_id"]],
         ).fetchall()
+        # Model parça listesi (0019): boş yuvada neyin takılacağı ve takarken hangi stok parçasının uyduğu
+        fits: dict[str, list] = {}
+        for r in conn.execute(
+            """select mp.position_code, mp.part_id, p.name,
+                      (select count(*) from public.part_items pi
+                        where pi.part_id = mp.part_id and pi.tenant_id = mp.tenant_id and pi.status = 'in_stock') as in_stock
+                 from public.model_parts mp join public.parts p on p.id = mp.part_id
+                where mp.tenant_id = %s and mp.model_id = %s and mp.position_code is not null
+                order by p.name""",
+            [ctx.tenant_id, asset["model_id"]],
+        ).fetchall():
+            fits.setdefault(r.pop("position_code"), []).append(r)
+        for p in asset["positions"]:
+            p["fits"] = fits.get(p["code"], [])
         return asset
 
 
@@ -95,7 +113,7 @@ def list_parts(
 ):
     with ctx.tx() as conn:
         return conn.execute(
-            """select ph.*, l.manufacturer, l.part_no, l.qr_code, l.cost_total
+            """select ph.*, l.part_id, l.manufacturer, l.part_no, l.qr_code, l.cost_total
                  from public.v_part_health ph
                  join public.v_part_items_live l on l.id = ph.id
                 where ph.tenant_id = %(t)s
@@ -236,6 +254,60 @@ def tire_cost(ctx: TenantCtx):
         ).fetchall()
 
 
+@router.get("/reports/removal-reasons", summary="Sökme sebepleri: sebep, katalog kalemi ve makine bazında")
+def removal_reasons(
+    ctx: TenantCtx,
+    months: int = Query(12, ge=1, le=60, description="Geriye dönük dönem (sökme tarihi)"),
+    category: str | None = Query(None, max_length=40, description="Parça tipi kodu: tire, rim..."),
+):
+    """Rotasyon bir sökme sebebi değil yer değişimidir; ayrı sayılır, paylara girmez.
+    Listede olmayan eski kodlar 'diğer' altında toplanır."""
+    with ctx.tx() as conn:
+        rows = conn.execute(
+            """select case when e.reason_code = any(%(known)s) then e.reason_code else 'other' end as reason,
+                      l.part_id, l.part_name, l.manufacturer, l.category_code,
+                      e.asset_id, a.code as asset_code, e.part_hours
+                 from public.part_events e
+                 join public.v_part_items_live l on l.id = e.part_item_id
+                 left join public.assets a on a.id = e.asset_id
+                where e.tenant_id = %(t)s and e.event_type = 'removed'
+                  and e.occurred_at >= now() - make_interval(months => %(m)s)
+                  and (%(cat)s::text is null or l.category_code = %(cat)s)""",
+            {"t": ctx.tenant_id, "m": months, "cat": category, "known": list(REMOVE_REASONS)},
+        ).fetchall()
+        period_from = conn.execute("select now() - make_interval(months => %s) as f", [months]).fetchone()["f"]
+
+    rotations = sum(1 for r in rows if r["reason"] == "rotation")
+    rows = [r for r in rows if r["reason"] != "rotation"]
+
+    def summarize(items: list[dict]) -> dict:
+        hours = [float(r["part_hours"]) for r in items if r["part_hours"] is not None]
+        counts: dict[str, int] = {}
+        for r in items:
+            counts[r["reason"]] = counts.get(r["reason"], 0) + 1
+        return {"count": len(items), "avg_part_hours": round(sum(hours) / len(hours)) if hours else None,
+                "reasons": dict(sorted(counts.items(), key=lambda kv: -kv[1]))}
+
+    def group(key: str, head) -> list[dict]:
+        groups: dict = {}
+        for r in rows:
+            if r[key] is not None:
+                groups.setdefault(r[key], []).append(r)
+        out = [{**head(items[0]), **summarize(items)} for items in groups.values()]
+        return sorted(out, key=lambda g: -g["count"])
+
+    reasons = group("reason", lambda r: {"reason": r["reason"]})
+    for g in reasons:
+        g.pop("reasons")
+    return {
+        "months": months, "from": period_from, "total": len(rows), "rotations": rotations,
+        "reasons": reasons,
+        "by_part": group("part_id", lambda r: {"part_id": r["part_id"], "name": r["part_name"],
+                                                "manufacturer": r["manufacturer"], "category_code": r["category_code"]}),
+        "by_asset": group("asset_id", lambda r: {"asset_id": r["asset_id"], "code": r["asset_code"]}),
+    }
+
+
 @router.get("/reports/fleet.pdf", summary="PDF durum raporu (tüm filo, bir saha veya tek makine)",
             response_class=Response, responses={200: {"content": {"application/pdf": {}}}})
 def fleet_pdf(ctx: TenantCtx, storage: AppStorage, asset_id: UUID | None = None, site_id: UUID | None = None):
@@ -293,10 +365,12 @@ def categories(ctx: TenantCtx):
     with ctx.tx() as conn:
         return conn.execute(
             """select id, code, name, is_serialized, measurement_profile, required_photo_angles,
-                      tenant_id is null as is_library
-                 from public.part_categories
-                where tenant_id is null or tenant_id = %s order by name""",
-            [ctx.tenant_id],
+                      tenant_id is null as is_library,
+                      (select count(*) from public.parts p
+                        where p.category_id = pc.id and p.tenant_id = %(t)s) as part_count
+                 from public.part_categories pc
+                where tenant_id is null or tenant_id = %(t)s order by name""",
+            {"t": ctx.tenant_id},
         ).fetchall()
 
 

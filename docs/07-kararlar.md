@@ -216,3 +216,59 @@ Her önemli karar burada: ne seçildi, neden, neyi göze aldık. Bir karar deği
 **Neden:** Stok (K-013) ve bakım (K-016) ile aynı ilke: bir sayının tek kaynağı olmalı. Ayrı bir maliyet tablosu defterlerle zamanla çelişirdi. Alışı ilk takılışa yazmak "bu makineye bu yıl ne harcadık" sorusuna nakit bazlı, açıklaması tek cümle olan bir cevap verir; rotasyonla başka makineye geçen lastik iki kez sayılmaz.
 
 **Göze alınan:** Nakit bazlı olduğu için lastik takımı değişen ay maliyet sıçrar; ömre yayılmış (amortisman) görünüm yok, lastikte bunu saat başı beklenen maliyet (`v_tire_health`) veriyor. İkinci el aktarılan parçanın maliyeti ilk makinede kalır. Duruş saat maliyeti firma oranıdır; makineye özel oran (`0017`, `assets.downtime_cost_per_hour`) doluysa onun yerine geçer, 0 da geçerli bir orandır (o makinenin duruşu maliyet yazmaz). Oran tarihçesi tutulmaz: değişen oran geçmiş dönemin raporunu da değiştirir. Saat kaydı dönem başını kapsamıyorsa saat başı maliyet olduğundan yüksek çıkar; arayüz bunu yıldızla belirtir.
+
+## K-018 · Tedarikçi karşılaştırma veri girişi istemez; sipariş ve teslim alma kayıtlarından hesaplanır
+
+**Karar:** Tedarikçi karşılaştırma (`GET /purchasing/supplier-comparison`) yeni tablo ya da giriş ekranı açmaz. Kaynak, verilmiş siparişlerdir (`ordered`, `partial`, `received`; talep ve iptal sayılmaz), dönem sipariş tarihine göredir. *Kaç kez:* kalemin geçtiği sipariş sayısı (açık sipariş de alımdır). *Fiyat:* miktar ağırlıklı ortalama birim fiyat ve son alış fiyatı. *Teslim süresi:* sipariş tarihinden kalemin son teslimatına kadar; yalnızca tamamı teslim alınan kalemler ölçülür. *Zamanında:* son teslimat siparişteki beklenen tarihte ya da öncesindeyse. *Eksik teslim:* kalanı kapatılan kalem. "En ucuz" ve "En hızlı" işareti, o kalemde en az iki tedarikçinin verisi varsa ve biri açıkça öndeyse konur; eşitlikte kimse işaretlenmez. Tek bir puan üretilmez.
+
+**Neden:** Teklifleri elle girip yan yana bakmak Excel'de yapılanı programa taşımaktan öteye geçmez; kullanıcı zaten yaptığı işi (sipariş ver, teslim al) yaparken karşılaştırma kendiliğinden çıkmalı. Tek puan yerine iki ayrı işaret, "neden bu tedarikçi" sorusunun cevabını gizlemez: ucuz olan geç getiriyorsa kararı işin aciliyeti verir. Aynı özet sipariş açarken kalemin altında görünür; karar orada verilir.
+
+**Göze alınan:** Sipariş geçmişi biriktikçe anlam kazanır; ilk aylarda tablo boş ya da tek tedarikçili görünür. Karşılaştırma aynı katalog kalemi içindir; muadil ürün ayrı kalemse yan yana gelmez. Beklenen tarihi girilmemiş sipariş zamanında oranına girmez. Fiyat teklifi toplama (tedarikçinin link üzerinden kendi teklifini girmesi) e-posta altyapısıyla birlikte Faz 3'e bırakıldı.
+
+## K-019 · Sökme sebebi sabit listeden seçilir; firmaya özel sebep yok
+
+**Karar:** Parça sökülürken sebep sekiz maddelik sabit listeden seçilir (aşınma, kesik / yırtık, darbe, ayrışma, basınç kaybı, sızıntı, rotasyon, diğer); API listede olmayan değeri reddeder. Firmanın kendi sebebini eklemesi yol haritasından çıkarıldı. Sebep raporu (`GET /reports/removal-reasons`) sökme olaylarını (`part_events`, `removed`) sebebe, katalog kalemine ve makineye göre sayar; her grupta sökme anındaki ortalama çalışma saatini verir. Rotasyon bir sökme sebebi değil yer değişimidir: ayrı sayılır, paylara girmez. Listede olmayan eski kodlar raporda "diğer" altında toplanır.
+
+**Neden:** Serbest ya da firmaya özel sebep, aynı şeyi birkaç ada böler ("kesik", "yırtık", "kesilme"); zaman içinde ve firmalar arasında karşılaştırma yapılamaz. Sabit liste, veriyi baştan temiz toplar; ileride lastik modeli ya da saha bazında "hangi sebep ömrü ne kadar kısaltıyor" sorusu ancak böyle cevaplanır. Ayrıntı isteyen teknisyen sökme notuna yazar.
+
+**Göze alınan:** Listeye uymayan durum "diğer"e düşer; "diğer" payı büyürse listeye yeni madde eklemek gerekir (herkes için, migrasyonsuz: liste kodda). Sebepler lastik ağırlıklıdır; lastik dışı parçalarda çoğu sökme "aşınma", "sızıntı" ya da "diğer" olur.
+
+## K-020 · Model parça listesi yol gösterir, engel koymaz; tam katalog değil kritik kalemler
+
+**Karar:** Model parça listesi (`0019`, `model_parts`) firmaya aittir ve iki tür satır tutar: yuvaya bağlı ("bu yuvaya bu katalog kalemi uyar"; miktar hep 1, bir yuvaya birden çok alternatif yazılabilir) ve makine geneli (sarf ya da yedek; miktar makine başına kullanım). Yuvaya yalnızca seri numaralı ve yuvanın parça tipindeki kalem yazılır. Takma kuralı değişmez: `install_part_item` yine yalnızca yuvanın parça tipini denetler. Liste arayüzde yol gösterir: takma penceresi stokta önce listeye uyanları gösterir, kullanıcı isterse diğerlerini açar; boş yuvada uygun kalem ve stok durumu görünür. Excel içe aktarma parça numarasıyla eşleşir ve ya hepsini yazar ya hiçbirini.
+
+**Neden:** Üreticinin binlerce satırlık tam parça kataloğunu kimse girmez; girilse de bakımı yapılmaz. Hedef, firmanın zaten izlediği 20 ila 50 kritik kalemdir. Listeyi katı kural yapmak (listede olmayan parça takılamaz) sahada işi durdurur: muadil lastik geldiğinde teknisyen takamaz, liste de çoğu zaman eksiktir. Yol göstermek yanlış ebat takma hatasını azaltır ama kararı sahaya bırakır.
+
+**Göze alınan:** Listede olmayan parça takılabilir; arayüz bunu "listede yok" diye işaretler ama engellemez. Şablondan silinen yuvanın satırı listede kalır ("şablonda yok" görünür). Liste şimdilik bakım planı sarflarını ve satınalma ihtiyacını beslemiyor; ikisi de aynı tablodan okunacak şekilde sonraya bırakıldı.
+
+## K-021 · Ürün ağacı: ürün başına tek ağaç, alt montaj ayrı tablo değil
+
+**Karar:** Üretim BOM'u (`0020`) iki tablodur: `boms` (üretilen katalog kalemi başına bir ağaç) ve `bom_lines` (bileşen, 1 birim ürün için miktar). Ürün ve bileşen aynı katalogdadır (`parts`). Alt montaj ayrı bir kavram değildir: kendi ağacı olan bileşen alt montajdır. Malzeme maliyeti yapraklardan yukarı toplanır; yaprağın maliyeti stok ortalama maliyeti, yoksa liste fiyatıdır; ikisi de yoksa sıfır sayılır ve ekranda işaretlenir. Döngü API'de engellenir. Model parça listesi (`model_parts`, K-020) ayrı kalır: o sahadaki makinenin bakımına, bu üretime bakar.
+
+**Neden:** Tek katalog, stok ve satınalmanın üretimle aynı kalemlerden konuşmasını sağlar (üretilebilirlik ve tedarik açığı bu ağaçtan hesaplanacak). Alt montajı ayrı tablo yapmak aynı bilgiyi iki yerde tutmak olurdu.
+
+**Göze alınan:** Revizyon (A, B sürümleri), alternatif bileşen ve fire payı yok; ilk imalatçı pilotuyla gerekirse eklenir. Excel biçimi kendi tasarımımızdır, gerçek bir müşteri dosyasıyla denenmedi.
+
+## K-022 · Üretim emri: işlemler rotadan kopyalanır, süre başla / durdur kaydından gelir
+
+**Karar:** Rota (`0021`, `bom_operations`) ürün ağacına bağlı sıralı işlem listesidir; süre 1 birim ürün içindir ve boş bırakılabilir. Üretim emri açılırken işlemler emre kopyalanır (`production_order_ops`, plan = birim süre × miktar). Gerçekleşen süre elle girilmez: işlem başında Başla / Durdur ile açılıp kapanan zaman kayıtlarının (`production_time_logs`) toplamıdır. Bir kişinin aynı anda tek açık kaydı olur; aynı işlemde birden çok kişi çalışabilir. "Bitti" işlemde süren bütün kayıtları kapatır; süre tutulmadan da bitti işaretlenebilir. Emir bütün işlemler bitmeden tamamlanamaz; iptal süren kayıtları kapatır ve emir işlem raporuna girmez. Kurallar veritabanı fonksiyonlarındadır (`prod_op_start`, `prod_op_stop`, `prod_set_status`). Rota ve emir açma / iptal yönetici, başla / durdur / bitir ve tamamlama teknisyen yetkisidir.
+
+**Neden:** Kopyalama, rota değişince açık emrin planının ve geçmiş raporun kaymasını önler. Sürenin kayıttan gelmesi, gün sonunda tahminle doldurulan formdan daha güvenilirdir ve kişi bazında ayrıntıyı bedavaya verir. Tek açık kayıt kuralı, unutulan sayaçların iki işe birden süre yazmasını engeller.
+
+**Göze alınan:** Emir stokla konuşmuyor: malzeme tüketimi ve mamul girişi yok (üretilebilirlik, fire ve üretim maliyeti kalemleriyle gelecek). İş istasyonu / makine ataması, işlemler arası zorunlu sıra, vardiya ve mola yok; durdurmayı unutan kişinin süresi akmaya devam eder ve düzeltme ekranı yok. Alt montaj için emir kendiliğinden açılmaz. Rapor işlemleri ada göre toplar; aynı işlem farklı ürünlerde farklı yazıldıysa ayrı satır olur.
+
+## K-023 · Üretilebilirlik: anlık hesap, seviye seviye netleştirme
+
+**Karar:** Üretilebilirlik ve tedarik açığı saklanmaz; her soruda ürün ağacı (`boms`, `bom_lines`), stok (`v_stock_totals`) ve yoldaki siparişlerden (`v_purchase_on_order`) hesaplanır. İhtiyaç yukarıdan aşağı netleştirilir: her bileşende önce eldeki stok kullanılır; yetmeyen kısım bileşen alt montajsa onun bileşenlerine açılır, satın alınan kalemse eksik yazılır. Aynı kalem ağacın birkaç dalında geçiyorsa stok bir kez paylaşılır. "Kaç birim üretilir" eksik çıkmayan en büyük tam sayıdır. "Eksik" stoka göredir; "alınacak" eksikten verilmiş siparişlerin kalan miktarı düşülerek bulunur (talep aşamasındaki sipariş sayılmaz). Üretilecek ürünün kendi stoku hesaba katılmaz: soru "kaç tane daha yapabilirim"dir.
+
+**Neden:** Saklanan bir plan tablosu, stok ve sipariş her değiştiğinde eskir ve yeniden üretilmesi gerekir; KOBİ ölçeğinde ağaçlar küçük olduğu için anlık hesap hem doğru hem yeterince hızlıdır. Alt montaj stokunu önce kullanmak, rafta hazır duran silindir varken bileşenlerini yeniden satın aldırmamak içindir.
+
+**Göze alınan:** Zaman boyutu yok: termin, tedarik süresi ve "ne zaman sipariş vermeliyim" hesaplanmaz. Açık üretim emirlerinin ihtiyacı düşülmez (emir stokla konuşmuyor, K-022); iki ürün aynı stoku ayrı ayrı "üretilebilir" gösterebilir. Depo ayrımı yok, firma toplam stoku kullanılır. Talep açıldıktan sonra sipariş verilene kadar aynı eksik yeniden talep edilebilir; ekran bunu engellemez. Fire payı ve asgari sipariş miktarı yok.
+
+## K-024 · Üretim emri stoku tamamlanırken işler; fire ve hurda emirde tutulur
+
+**Karar:** Emir açılırken ürün ağacının birinci seviye bileşenleri emre kopyalanır (`production_order_materials`, plan = ağaçtaki miktar × emir miktarı); ağaç sonradan değişse de emrin planı değişmez. Stok tek noktada, emir tamamlanırken işlenir (`prod_complete`): seçilen depodan her malzemenin gerçekleşen kullanımı çıkar, sağlam ürün aynı depoya girer; hepsi tek işlemdir, bir kalemin stoku yetmiyorsa hiçbiri yazılmaz. Fire = kullanılan − planlanan malzeme (eksi değer tasarruf); hurda = üretilip kullanılamayan ürün. Plandan fazla malzeme ve hurda için sebep zorunludur; sebepler sabit bir listedir (malzeme hatası, işçilik hatası, makine / kalıp arızası, ayar / deneme üretimi, ölçü dışı, taşıma / depolama hasarı, diğer). Alt montaj bileşenlerine açılmaz: stokta hazır olmalı, kendi emriyle üretilir.
+
+**Neden:** KOBİ atölyesinde malzeme çoğunlukla iş bitince sayılır; işlem başına ya da gün içinde tüketim girmek kimsenin yapmayacağı bir yüktür. Tek noktada işlemek stokla emrin birbirinden ayrışmasını da önler. Sabit sebep listesi raporu karşılaştırılabilir tutar; serbest metin dağılım vermez.
+
+**Göze alınan:** Emir sürerken malzeme stokta görünmeye devam eder; açık emir malzeme ayırmaz (üretilebilirlik hesabı da bunu bilmez, K-023). Seri numarasıyla tek tek izlenen kalemlerde (silindir, pompa, lastik) stok hareketi yapılmaz, yalnızca plan / kullanılan kaydedilir; bu kalemlerin giriş-çıkışı elle yapılır. Mamul stoğa maliyetsiz girer; birim maliyet "üretim maliyeti" kalemiyle gelecek. Hurda ürünün kendisi stoğa girmez ve değeri raporda yoktur (yalnızca malzeme firesinin tutarı var). Kısmi tamamlama yok: emir bir kerede kapanır. Tamamlanmış emir geri alınamaz; düzeltme stok sayımıyla yapılır.

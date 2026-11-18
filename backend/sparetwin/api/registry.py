@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
 from .deps import AppStorage, TenantCtx
-from .images import image_out
+from .images import entity_image, image_out
 
 router = APIRouter(tags=["Kayıt"])
 
@@ -37,20 +37,23 @@ def create_site(body: SiteIn, ctx: TenantCtx):
 
 # ---------- Pozisyon şablonları ve makine modelleri ----------
 @router.get("/catalog/templates", summary="Pozisyon şablonları (pozisyonlarıyla)")
-def list_templates(ctx: TenantCtx):
+def list_templates(ctx: TenantCtx, storage: AppStorage):
     with ctx.tx() as conn:
         templates = conn.execute(
-            """select id, name, layout, tenant_id is null as is_library
-                 from public.position_templates
-                where tenant_id is null or tenant_id = %s order by name""",
-            [ctx.tenant_id],
+            """select pt.id, pt.name, pt.layout, pt.tenant_id is null as is_library,
+                      (select count(*) from public.asset_models am
+                        where am.template_id = pt.id and am.tenant_id = %(t)s) as model_count
+                 from public.position_templates pt
+                where pt.tenant_id is null or pt.tenant_id = %(t)s order by pt.tenant_id nulls last, pt.name""",
+            {"t": ctx.tenant_id},
         ).fetchall()
         for t in templates:
             t["positions"] = conn.execute(
                 """select code, label, category_code, axle, x, y from public.template_positions
-                    where template_id = %s order by sort_order""",
+                    where template_id = %s order by sort_order, code""",
                 [t["id"]],
             ).fetchall()
+            t["image"] = entity_image(conn, storage, ctx.tenant_id, "position_template", t["id"])
         return templates
 
 
@@ -66,7 +69,10 @@ def list_asset_models(ctx: TenantCtx, storage: AppStorage):
     with ctx.tx() as conn:
         rows = conn.execute(
             """select am.id, am.manufacturer, am.model, am.category, am.template_id,
-                      pt.name as template_name, pt.layout, img.storage_key as img_key, img.mime_type as img_mime
+                      pt.name as template_name, pt.layout, img.storage_key as img_key, img.mime_type as img_mime,
+                      am.tenant_id is null as is_library,
+                      (select count(*) from public.model_parts mp
+                        where mp.model_id = am.id and mp.tenant_id = %(t)s) as bom_count
                  from public.asset_models am
                  left join public.position_templates pt on pt.id = am.template_id
                  left join public.attachments img on img.tenant_id = %(t)s and img.entity_type = 'asset_model'
@@ -211,6 +217,53 @@ def create_catalog_part(body: CatalogPartIn, ctx: TenantCtx):
 
 
 # ---------- Makineler ----------
+class AssetModelPatch(BaseModel):
+    template_id: UUID
+
+
+@router.patch("/catalog/asset-models/{model_id}", summary="Makine modelinin pozisyon şablonunu değiştir")
+def update_asset_model(model_id: UUID, body: AssetModelPatch, ctx: TenantCtx):
+    ctx.require("manager")
+    with ctx.tx() as conn:
+        m = conn.execute("select tenant_id from public.asset_models where id = %s", [model_id]).fetchone()
+        if not m or (m["tenant_id"] is not None and m["tenant_id"] != ctx.tenant_id):
+            raise HTTPException(404, "Makine modeli bulunamadı")
+        if m["tenant_id"] is None:
+            raise HTTPException(403, "Ortak kütüphanedeki model değiştirilemez; kendi modelinizi ekleyin")
+        if not conn.execute(
+            "select 1 from public.position_templates where id = %s and (tenant_id is null or tenant_id = %s)",
+            [body.template_id, ctx.tenant_id],
+        ).fetchone():
+            raise HTTPException(404, "Pozisyon şablonu bulunamadı")
+        # Takılı her parçanın yuvası yeni şablonda aynı kodla ve aynı parça tipiyle bulunmalı
+        blocked = [
+            f"{r['asset_code']} {r['position']}"
+            for r in conn.execute(
+                """select a.code as asset_code, pi.current_position as position
+                     from public.part_items pi
+                     join public.assets a on a.id = pi.current_asset_id
+                     join public.parts p on p.id = pi.part_id
+                     join public.part_categories pc on pc.id = p.category_id
+                    where a.model_id = %s and a.tenant_id = %s and pi.status = 'installed'
+                      and not exists (select 1 from public.template_positions tp
+                                       where tp.template_id = %s and tp.code = pi.current_position
+                                         and tp.category_code = pc.code)
+                    order by a.code, pi.current_position""",
+                [model_id, ctx.tenant_id, body.template_id],
+            ).fetchall()
+        ]
+        if blocked:
+            more = f" ve {len(blocked) - 5} pozisyon daha" if len(blocked) > 5 else ""
+            raise HTTPException(
+                409, f"Yeni şablonda karşılığı olmayan takılı parçalar var: {', '.join(blocked[:5])}{more}. "
+                     "Önce bu parçaları sökün ya da şablona aynı kodlu yuvayı ekleyin")
+        return conn.execute(
+            """update public.asset_models set template_id = %s where id = %s
+               returning id, manufacturer, model, category, template_id""",
+            [body.template_id, model_id],
+        ).fetchone()
+
+
 class AssetIn(BaseModel):
     code: str = Field(min_length=1, max_length=40, description="Filo / ekipman no: LD-07")
     model_id: UUID

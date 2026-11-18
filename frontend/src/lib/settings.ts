@@ -58,13 +58,16 @@ export function validateThresholds(f: ThresholdForm): { errors: Partial<Threshol
 export const ENTITY_LABEL: Record<string, string> = {
   auth: "Oturum", parts: "Parça", assets: "Makine", stock: "Stok", inspections: "Kontrol", organization: "Firma ayarları",
   notifications: "Bildirim", registry: "Kayıt", imports: "İçe aktarma", images: "Görsel", labels: "Etiket", catalog: "Katalog",
-  sites: "Saha", rims: "Jant", purchasing: "Satınalma", maintenance: "Bakım",
+  sites: "Saha", rims: "Jant", purchasing: "Satınalma", maintenance: "Bakım", production: "Üretim",
 };
 export const ACTION_LABEL: Record<string, string> = {
   login: "giriş yaptı", password: "parola değiştirdi", create: "oluşturdu", update: "güncelledi", delete: "sildi",
   install: "taktı", remove: "söktü", move: "yer değiştirdi", rotate: "rotasyon yaptı", events: "olay kaydetti",
   meter: "motor saati girdi", state: "bildirim durumu değiştirdi", complete: "kontrolü tamamladı", cancel: "kontrolü iptal etti",
   measurements: "ölçüm girdi", photos: "fotoğraf yükledi", movements: "stok hareketi girdi", image: "görsel yükledi",
+  categories: "parça tipi düzenledi", templates: "pozisyon şablonu düzenledi", bom: "parça listesi düzenledi", boms: "ürün ağacı düzenledi",
+  import: "parça listesi içe aktardı", "asset-models": "makine modeli düzenledi",
+  routes: "rota düzenledi", start: "işleme başladı", finish: "üretim emrini tamamladı", stop: "işlemi durdurdu",
   commit: "içe aktardı", preview: "içe aktarma önizledi", status: "durum değiştirdi", receive: "teslim aldı",
 };
 export const describeAudit = (entity: string | null, action: string | null) =>

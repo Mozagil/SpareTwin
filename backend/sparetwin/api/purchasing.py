@@ -326,3 +326,98 @@ def order_receive(order_id: UUID, body: ReceiveIn, ctx: TenantCtx, request: Requ
             received.append({"line_id": r["line_id"], "qty": format(r["qty"].normalize(), "f")})
         request.state.audit = {"number": cur["number"], "ref": body.ref, "received": received}
         return _order_detail(conn, order_id, ctx.tenant_id)
+
+
+# ---------- Tedarikçi karşılaştırma ----------
+# Ek veri girişi yok: verilmiş siparişler ve teslim alma kayıtlarından hesaplanır.
+# Bir satır "teslim edildi" sayılır: sipariş edilen miktarın tamamı teslim alındıysa; teslim süresi
+# sipariş tarihinden son teslimata kadardır. Eksik kapatılan satır süre ve zamanında oranına girmez.
+COMPARE_LINES = """
+with ln as (
+  select pl.part_id, o.supplier_id, o.id as order_id, o.ordered_at, o.expected_at, o.status,
+         pl.qty, pl.received_qty, coalesce(pl.unit_cost, p.list_cost) as unit_cost,
+         (select max(r.received_at) from public.purchase_receipts r where r.line_id = pl.id) as last_receipt
+    from public.purchase_order_lines pl
+    join public.purchase_orders o on o.id = pl.order_id
+    join public.parts p on p.id = pl.part_id
+   where o.tenant_id = %(t)s and o.status in ('ordered', 'partial', 'received')
+     and o.supplier_id is not null and o.ordered_at >= now() - make_interval(months => %(m)s)
+     and (%(part)s::uuid is null or pl.part_id = %(part)s)
+)
+"""
+COMPARE_AGG = """
+  count(distinct order_id) as order_count,
+  sum(qty * unit_cost) as spend,
+  count(*) filter (where received_qty >= qty) as delivered,
+  avg(extract(epoch from last_receipt - ordered_at) / 86400.0) filter (where received_qty >= qty) as avg_lead_days,
+  count(*) filter (where received_qty >= qty and expected_at is not null) as timed,
+  count(*) filter (where received_qty >= qty and expected_at is not null and last_receipt::date <= expected_at) as on_time,
+  count(*) filter (where status = 'received' and received_qty < qty) as short
+"""
+
+
+def _best(rows: list[dict], key: str) -> None:
+    """Değeri en düşük olan tek tedarikçiyi işaretler (ör. cheapest); eşitlik ya da tek veri varsa kimse işaretlenmez."""
+    flag = {"avg_cost": "cheapest", "avg_lead_days": "fastest"}[key]
+    vals = sorted((float(r[key]), i) for i, r in enumerate(rows) if r[key] is not None)
+    for r in rows:
+        r[flag] = False
+    if len(vals) >= 2 and vals[0][0] < vals[1][0]:
+        rows[vals[0][1]][flag] = True
+
+
+@router.get("/supplier-comparison", summary="Tedarikçi karşılaştırma: kalem bazında kimden kaç kez, kaça, kaç günde alındı")
+def supplier_comparison(
+    ctx: TenantCtx,
+    months: int = Query(12, ge=1, le=60, description="Geriye dönük dönem (sipariş tarihi)"),
+    part_id: UUID | None = None,
+):
+    args = {"t": ctx.tenant_id, "m": months, "part": part_id}
+    with ctx.tx() as conn:
+        # Renk tedarikçiyi anlatır: sıra dönemden bağımsız ve sabit olsun diye tüm tedarikçiler döner
+        suppliers = conn.execute(
+            f"""{COMPARE_LINES}
+                select s.id as supplier_id, s.name as supplier_name, s.is_active, s.lead_time_days,
+                       coalesce(a.order_count, 0) as order_count, coalesce(a.spend, 0) as spend,
+                       coalesce(a.part_count, 0) as part_count, coalesce(a.delivered, 0) as delivered, a.avg_lead_days,
+                       coalesce(a.timed, 0) as timed, coalesce(a.on_time, 0) as on_time, coalesce(a.short, 0) as short
+                  from public.suppliers s
+                  left join (select supplier_id, count(distinct part_id) as part_count, {COMPARE_AGG}
+                               from ln group by supplier_id) a on a.supplier_id = s.id
+                 where s.tenant_id = %(t)s
+                 order by s.created_at, s.id""",
+            args,
+        ).fetchall()
+        rows = conn.execute(
+            f"""{COMPARE_LINES}
+                select ln.part_id, p.name, p.manufacturer, p.part_no, p.unit, pc.code as category_code,
+                       ln.supplier_id, s.name as supplier_name, sum(ln.qty) as qty,
+                       sum(ln.qty * ln.unit_cost) / nullif(sum(ln.qty) filter (where ln.unit_cost is not null), 0) as avg_cost,
+                       (array_agg(ln.unit_cost order by ln.ordered_at desc))[1] as last_cost,
+                       max(ln.ordered_at) as last_ordered_at, {COMPARE_AGG}
+                  from ln
+                  join public.parts p on p.id = ln.part_id
+                  join public.part_categories pc on pc.id = p.category_id
+                  join public.suppliers s on s.id = ln.supplier_id
+                 group by ln.part_id, p.name, p.manufacturer, p.part_no, p.unit, pc.code, ln.supplier_id, s.name
+                 order by p.name, ln.part_id, count(distinct ln.order_id) desc, s.name""",
+            args,
+        ).fetchall()
+        period_from = conn.execute("select now() - make_interval(months => %s) as f", [months]).fetchone()["f"]
+
+    parts: dict[UUID, dict] = {}
+    for r in rows:
+        part = parts.setdefault(r["part_id"], {
+            "part_id": r["part_id"], "name": r["name"], "manufacturer": r["manufacturer"], "part_no": r["part_no"],
+            "unit": r["unit"], "category_code": r["category_code"], "order_count": 0, "spend": 0, "suppliers": []})
+        part["order_count"] += r["order_count"]
+        part["spend"] += r["spend"] or 0
+        part["suppliers"].append({k: r[k] for k in (
+            "supplier_id", "supplier_name", "order_count", "qty", "spend", "avg_cost", "last_cost", "last_ordered_at",
+            "delivered", "avg_lead_days", "timed", "on_time", "short")})
+    for part in parts.values():
+        _best(part["suppliers"], "avg_cost")
+        _best(part["suppliers"], "avg_lead_days")
+    # Karşılaştırılabilir kalemler (birden çok tedarikçi) önce, sonra harcamaya göre
+    ordered = sorted(parts.values(), key=lambda p: (-len(p["suppliers"]), -float(p["spend"]), p["name"]))
+    return {"months": months, "from": period_from, "suppliers": suppliers, "parts": ordered}

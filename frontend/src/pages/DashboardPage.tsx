@@ -201,7 +201,7 @@ export function DashboardPage() {
           {asset.isLoading || !a ? <Loading /> : (
             <>
               <div className="schematic-wrap">
-                <MachineSchematic layout={a.layout} positions={a.positions} selected={slot?.code} showAll={showAll} onSelect={setSlot} />
+                <MachineSchematic layout={a.layout} image={a.schematic_image?.url} positions={a.positions} selected={slot?.code} showAll={showAll} onSelect={setSlot} />
               </div>
               <div className="legend">
                 <span style={{ ["--c" as string]: "var(--ok)" }}>%{num(th.watch_pct)} üzeri</span>

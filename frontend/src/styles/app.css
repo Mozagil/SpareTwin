@@ -522,3 +522,113 @@ input[aria-invalid="true"] { border-color: var(--critical); }
 .table.tco-table tfoot td { font-weight: 600; border-top: 2px solid var(--line); border-bottom: 0; }
 .table.tco-table sup { color: var(--watch); cursor: help; }
 .tco-note { margin: 12px 0 0; max-width: 90ch; }
+
+/* ---------- Firma kütüphanesi: parça tipleri ve pozisyon şablonları ---------- */
+.lib-head { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.lib-head p { margin: 0; max-width: 80ch; }
+.lib-head .btn { flex: none; }
+.table.lib-table tbody tr { cursor: default; }
+.table.lib-table td:nth-child(3) { max-width: 380px; }
+.table.lib-table .row-actions { white-space: nowrap; }
+.lib-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lib-actions .spacer { flex: 1; }
+.metric-row { display: grid; grid-template-columns: minmax(140px, 2fr) 90px 80px 80px auto auto; gap: 10px; align-items: end; }
+.metric-row .inline-check, .metric-row .icon-btn { padding-bottom: 9px; }
+.check-row { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.tpl-canvas { user-select: none; min-width: 0; }
+.tpl-slot { cursor: grab; touch-action: none; }
+.tpl-slot:active { cursor: grabbing; }
+.tpl-code { fill: var(--ink); font-weight: 600; pointer-events: none; paint-order: stroke; stroke: var(--surface-2); stroke-width: 4px; stroke-linejoin: round; }
+/* Sık yerleşen yuvalarda (silindir, pompa) kodlar üst üste binmesin */
+.tpl-code-opt { opacity: 0; }
+.tpl-slot[aria-pressed="true"] .tpl-code-opt, .tpl-slot:hover .tpl-code-opt, .tpl-slot:focus-visible .tpl-code-opt { opacity: 1; }
+.table.tpl-table td { padding: 6px 8px; }
+.table.tpl-table input:not([type="checkbox"]), .table.tpl-table select { width: 100%; min-width: 110px; }
+.table.tpl-table .tpl-code-input { min-width: 96px; max-width: 150px; font-family: var(--font-cond); font-weight: 600; }
+.table.tpl-table .tpl-axle { min-width: 56px; max-width: 70px; }
+@media (max-width: 640px) {
+  .lib-head { flex-direction: column; }
+  .metric-row { grid-template-columns: 1fr 1fr; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .metric-row > .field:first-child { grid-column: 1 / -1; }
+}
+
+/* ---------- Tedarikçi karşılaştırma ---------- */
+.sup-bar { height: 16px; margin: 10px 0 2px; }
+.sup-legend { color: var(--ink); margin-bottom: 12px; }
+.sup-legend strong { font-variant-numeric: tabular-nums; }
+.table.sup-table { table-layout: fixed; min-width: 680px; }
+.table.sup-table th:first-child { width: 32%; }
+.table.sup-table tbody tr { cursor: default; }
+.table.sup-table .chip { margin-top: 3px; }
+.sup-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: -1px; }
+.sup-section { margin-top: 26px; }
+.sup-part { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-s); }
+.sup-part .mini-head { margin: 0; }
+.sup-verdict { margin: 10px 0 0; font-weight: 600; }
+
+/* ---------- Sökme sebepleri ---------- */
+.table.reason-table tbody tr { cursor: default; }
+.table.reason-table .reason-col-bar { width: 38%; min-width: 160px; }
+.reason-bar { height: 12px; border-radius: 0 4px 4px 0; background: var(--tco-1); }
+
+/* Şablon resmi */
+.tpl-image { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.tpl-image .error-note { flex-basis: 100%; }
+
+/* Model formu dar kalır, altındaki model listesi panel genişliğinde */
+.model-form { max-width: 720px; }
+
+/* Üretim: solda ürün ağaçları, sağda seçilen ağaç */
+.prod { display: grid; grid-template-columns: minmax(280px, 4fr) minmax(0, 9fr); gap: 16px; align-items: start; }
+.prod-list { list-style: none; margin: 0 0 14px; padding: 0; }
+.prod-list button { width: 100%; display: flex; justify-content: space-between; gap: 12px; align-items: center; text-align: left;
+  border: 0; border-top: 1px solid var(--line); background: none; padding: 10px 8px; cursor: pointer; color: inherit; font: inherit; }
+.prod-list li:first-child button { border-top: 0; }
+.prod-list button:hover, .prod-list button[aria-current="true"] { background: var(--surface-2); }
+.prod-list button > span:first-child { display: grid; gap: 2px; min-width: 0; }
+.prod-list .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.prod-list sup, .prod-table sup { color: var(--watch); }
+.table.prod-table td:nth-child(3) { max-width: none; }
+.table.prod-table tfoot td { font-weight: 600; border-top: 2px solid var(--line); border-bottom: 0; }
+.prod-toggle { display: inline-block; width: 20px; border: 0; background: none; padding: 0; cursor: pointer; color: var(--muted); font-size: 13px; }
+.prod-sub { padding-left: 20px; }
+@media (max-width: 900px) { .prod { grid-template-columns: minmax(0, 1fr); } }
+.table.prod-table td:first-child { min-width: 200px; }
+.prod-wide { grid-column: 1 / -1; }
+.build-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.build-can { margin: 0; font-size: 16px; }
+.build-head .field { width: 200px; }
+.route-list { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+.route-rows { display: grid; gap: 8px; }
+.route-row { display: grid; grid-template-columns: 22px minmax(0, 3fr) minmax(90px, 1fr) auto auto; gap: 8px; align-items: center; }
+.route-seq { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.op-actions { display: inline-flex; gap: 6px; }
+.prod-logs { margin-top: 14px; }
+.prod-mats, .finish-form { margin-top: 14px; }
+.finish-form { border-top: 1px solid var(--line); padding-top: 14px; }
+.finish-qty { width: 96px; text-align: right; }
+.finish-reason { display: grid; gap: 4px; justify-items: start; }
+.finish-reason select { max-width: 200px; }
+.prod-reports { gap: 16px; }
+.scrap-report .mini-head { margin-top: 10px; }
+/* Telefonda işlem satırı kart olur: Başla / Durdur düğmeleri yana kaymadan görünür */
+@media (max-width: 640px) {
+  .table.op-table thead { display: none; }
+  .table.op-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .table.op-table td { border: 0; padding: 0; max-width: none; }
+  .table.op-table td[data-label] { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; }
+  .table.op-table td[data-label]::before { content: attr(data-label); color: var(--muted); }
+  .table.op-table td.row-actions { grid-column: 1 / -1; text-align: left; margin-top: 6px; }
+  .table.op-table td.row-actions:empty { display: none; }
+  .op-actions .btn { min-height: 40px; padding-inline: 18px; }
+  .op-bars-head, .op-bars-cell { display: none; }
+}
+.prod-logs summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+.op-bars-head { min-width: 180px; }
+.op-bars { display: grid; gap: 3px; min-width: 160px; }
+.op-bars i, .op-legend i { display: block; height: 7px; min-width: 2px; border-radius: 4px; }
+.op-bar-plan { background: var(--unknown); }
+.op-bar-actual { background: var(--brand); }
+.op-legend { margin-top: 10px; }
+.op-legend i { display: inline-block; width: 18px; vertical-align: middle; margin: 0 4px 0 8px; }
+.op-legend i:first-child { margin-left: 0; }

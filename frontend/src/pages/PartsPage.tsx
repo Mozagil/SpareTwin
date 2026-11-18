@@ -4,6 +4,9 @@ import { useLabels, useParts } from "../api/hooks";
 import { BandChip, Empty, ErrorNote, Loading, Panel } from "../components/ui";
 import { CATEGORY_LABEL, STATUS_LABEL, num, pct, usd } from "../lib/format";
 import { openInNewTab } from "../lib/popup";
+import { RemovalReasonsPanel } from "./RemovalReasonsPanel";
+
+const TABS = [{ key: "", label: "Liste" }, { key: "sebepler", label: "Sökme sebepleri" }];
 
 export function PartsPage() {
   const [params, setParams] = useSearchParams();
@@ -32,9 +35,16 @@ export function PartsPage() {
     openInNewTab(async () => (await labels.mutateAsync({ asset_ids: [], part_ids: [...picked], skip: 0 })).url).catch(() => undefined);
 
   const rows = parts.data ?? [];
+  const tab = params.get("sekme") ?? "";
   return (
     <>
       <div className="page-head"><h1>Parçalar</h1></div>
+      <div className="tabs" role="tablist">
+        {TABS.map((t) => (
+          <button key={t.key} role="tab" aria-selected={t.key === tab} onClick={() => setParams(t.key ? { sekme: t.key } : {})}>{t.label}</button>
+        ))}
+      </div>
+      {tab === "sebepler" ? <RemovalReasonsPanel /> : (
       <Panel>
         <div className="filters">
           <input type="search" placeholder="Seri no veya parça adı" value={f.q} onChange={(e) => set("q", e.target.value)} aria-label="Ara" />
@@ -92,6 +102,7 @@ export function PartsPage() {
           </div>
         )}
       </Panel>
+      )}
     </>
   );
 }

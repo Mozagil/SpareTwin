@@ -11,6 +11,7 @@ import { LoginPage, TenantPicker } from "./pages/LoginPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
 import { PartPage } from "./pages/PartPage";
 import { PartsPage } from "./pages/PartsPage";
+import { ProductionPage } from "./pages/ProductionPage";
 import { PurchasingPage } from "./pages/PurchasingPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { RimsPage } from "./pages/RimsPage";
@@ -34,6 +35,7 @@ export function App() {
           <Route path="etiketler" element={<LabelsPage />} />
           <Route path="jantlar" element={<RimsPage />} />
           <Route path="stok" element={<StockPage />} />
+          <Route path="uretim" element={<ProductionPage />} />
           <Route path="satinalma" element={<PurchasingPage />} />
           <Route path="bakim" element={<MaintenancePage />} />
           <Route path="kontrol" element={<InspectionStartPage />} />

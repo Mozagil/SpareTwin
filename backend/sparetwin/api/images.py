@@ -6,6 +6,8 @@ PUT    /catalog/asset-models/{id}/image   (manager)
 DELETE /catalog/asset-models/{id}/image
 PUT    /assets/{id}/image                 (manager)
 DELETE /assets/{id}/image
+PUT    /catalog/templates/{id}/image      (manager; yalnızca firmanın kendi şablonu)
+DELETE /catalog/templates/{id}/image
 
 Okuma tarafında görseller ilgili yanıtların içinde `image` alanıyla gelir
 (kısa ömürlü imzalı link). Ayrı bir istek gerekmez.
@@ -31,8 +33,11 @@ _EXISTS = {
     "part": "select 1 from public.parts where id = %s and (tenant_id = %s or tenant_id is null)",
     "asset_model": "select 1 from public.asset_models where id = %s and (tenant_id = %s or tenant_id is null)",
     "asset": "select 1 from public.assets where id = %s and tenant_id = %s",
+    # Şema resmi şablonun parçasıdır: ortak şablon değiştirilemez, kopyası alınır
+    "position_template": "select 1 from public.position_templates where id = %s and tenant_id = %s",
 }
-_NOT_FOUND = {"part": "Katalog kalemi bulunamadı", "asset_model": "Makine modeli bulunamadı", "asset": "Makine bulunamadı"}
+_NOT_FOUND = {"part": "Katalog kalemi bulunamadı", "asset_model": "Makine modeli bulunamadı", "asset": "Makine bulunamadı",
+              "position_template": "Pozisyon şablonu bulunamadı ya da ortak kütüphaneye ait"}
 
 
 # ---------- Okuma yardımcıları (diğer modüller kullanır) ----------
@@ -157,3 +162,13 @@ def put_asset_image(asset_id: UUID, file: ImageFile, ctx: TenantCtx, settings: A
 @router.delete("/assets/{asset_id}/image", status_code=204, summary="Makinenin fotoğrafını sil")
 def delete_asset_image(asset_id: UUID, ctx: TenantCtx, storage: AppStorage):
     _delete_image(ctx, storage, "asset", asset_id)
+
+
+@router.put("/catalog/templates/{template_id}/image", summary="Şablonun şema resmi: makinenin üstten fotoğrafı ya da teknik çizimi")
+def put_template_image(template_id: UUID, file: ImageFile, ctx: TenantCtx, settings: AppSettings, storage: AppStorage):
+    return _set_image(ctx, storage, settings.media_max_bytes, "position_template", template_id, file)
+
+
+@router.delete("/catalog/templates/{template_id}/image", status_code=204, summary="Şablonun şema resmini sil (hazır gövde çizimine döner)")
+def delete_template_image(template_id: UUID, ctx: TenantCtx, storage: AppStorage):
+    _delete_image(ctx, storage, "position_template", template_id)

@@ -1,15 +1,16 @@
 import { useState, type FormEvent, type ReactElement, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
-import { useAssetModels, useCatalogParts, useCreate, useSites, useTemplates } from "../api/hooks";
-import type { Role } from "../api/types";
+import { useAssetModels, useCatalogParts, useCategories, useCreate, useSetModelTemplate, useSites, useTemplates } from "../api/hooks";
+import type { AssetModel, Role } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { ErrorNote, Field, Panel } from "../components/ui";
+import { CategoriesPanel } from "./CategoriesPanel";
 import { ImportPanel } from "./ImportPanel";
+import { ModelBomModal } from "./ModelBomModal";
+import { TemplatesPanel } from "./TemplatesPanel";
 import { CATEGORY_LABEL, LAYOUT_LABEL } from "../lib/format";
 
 const nOrNull = (v: string) => (v.trim() === "" ? null : Number(v));
-// Seri numarasıyla tek tek izlenen kategoriler; diğerleri (filtre, yağ, keçe) miktarla izlenir
-const SERIALIZED = new Set(["tire", "rim", "hyd_cylinder", "hyd_pump", "battery"]);
 const sOrNull = (v: string) => (v.trim() === "" ? null : v.trim());
 
 function Success({ children }: { children: ReactNode }) {
@@ -133,6 +134,9 @@ function AssetForm() {
 // ---------- Katalog kalemi ----------
 function CatalogForm() {
   const create = useCreate<unknown, { id: string; name: string }>("/catalog/parts", ["catalog-parts"]);
+  const categories = useCategories();
+  // Seri numarasıyla tek tek izlenen tipler; diğerleri (filtre, yağ, keçe) miktarla izlenir
+  const SERIALIZED = new Set((categories.data ?? []).filter((c) => c.is_serialized).map((c) => c.code));
   const [cat, setCat] = useState("tire");
   const [f, setF] = useState({ name: "", manufacturer: "", part_no: "", list_cost: "", min_stock: "0", life: "", unit: "adet" });
   const [t, setT] = useState({ size: "", construction: "radial", tra_code: "", otd_mm: "", scrap_tread_mm: "" });
@@ -160,9 +164,9 @@ function CatalogForm() {
   return (
     <form className="form" onSubmit={submit}>
       <div className="form-row">
-        <Field label="Tür">
+        <Field label="Tür" hint="Listede yoksa “Parça tipleri” sekmesinden ekleyin">
           <select value={cat} onChange={(e) => setCat(e.target.value)}>
-            {Object.entries(CATEGORY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {categories.data?.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select>
         </Field>
         <Field label="Ad"><input value={f.name} onChange={up("name")} placeholder={cat === "tire" ? "29.5R25 L-4 radyal" : ""} required /></Field>
@@ -226,6 +230,48 @@ function CatalogForm() {
 }
 
 // ---------- Makine modeli ----------
+/** Firmanın modelleri: şablon buradan değiştirilir (ör. kendi çizdiği şablona geçmek için). */
+function ModelList() {
+  const models = useAssetModels();
+  const templates = useTemplates();
+  const change = useSetModelTemplate();
+  const [bomFor, setBomFor] = useState<AssetModel | null>(null);
+  const rows = models.data ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <h3 className="mini-head sup-section">Kayıtlı modeller</h3>
+      <div className="table-wrap">
+        <table className="table lib-table">
+          <thead><tr><th>Model</th><th>Pozisyon şablonu</th><th>Parça listesi</th></tr></thead>
+          <tbody>
+            {rows.map((m) => (
+              <tr key={m.id}>
+                <td><strong>{m.manufacturer} {m.model}</strong></td>
+                <td>
+                  <select aria-label={`${m.manufacturer} ${m.model} şablonu`} value={m.template_id ?? ""} disabled={change.isPending}
+                          onChange={(e) => e.target.value && change.mutate({ modelId: m.id, template_id: e.target.value })}>
+                    {!m.template_id && <option value="">Seçin</option>}
+                    {templates.data?.map((x) => <option key={x.id} value={x.id}>{x.name}{x.is_library ? "" : " (firmanız)"}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <button type="button" className="btn btn-small" onClick={() => setBomFor(m)}>
+                    {m.bom_count > 0 ? `${m.bom_count} kalem` : "Liste oluştur"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ErrorNote error={change.error} />
+      <p className="muted small">Şablon değişince bu modelin tüm makinelerinin şeması değişir. Takılı bir parçanın yuvası yeni şablonda yoksa değişiklik yapılmaz.</p>
+      {bomFor && <ModelBomModal model={bomFor} onClose={() => setBomFor(null)} />}
+    </>
+  );
+}
+
 function ModelForm() {
   const templates = useTemplates();
   const create = useCreate<unknown, { manufacturer: string; model: string }>("/catalog/asset-models", ["asset-models"]);
@@ -236,7 +282,8 @@ function ModelForm() {
     create.mutate(f);
   };
   return (
-    <form className="form" onSubmit={submit}>
+    <>
+    <form className="form model-form" onSubmit={submit}>
       <div className="form-row">
         <Field label="Üretici"><input value={f.manufacturer} onChange={(e) => setF({ ...f, manufacturer: e.target.value })} required /></Field>
         <Field label="Model"><input value={f.model} onChange={(e) => setF({ ...f, model: e.target.value })} required /></Field>
@@ -252,7 +299,7 @@ function ModelForm() {
             <option value="other">Diğer</option>
           </select>
         </Field>
-        <Field label="Pozisyon şablonu" hint="Parçaların takılacağı yuvalar">
+        <Field label="Pozisyon şablonu" hint="Parçaların takılacağı yuvalar. Kendi şablonunuzu “Pozisyon şablonları” sekmesinde çizin">
           <select value={f.template_id} onChange={(e) => setF({ ...f, template_id: e.target.value })} required>
             <option value="">Seçin</option>
             {templates.data?.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
@@ -264,6 +311,8 @@ function ModelForm() {
       {create.data && <Success>{create.data.manufacturer} {create.data.model} eklendi.</Success>}
       <button className="btn btn-primary" disabled={create.isPending}>Model ekle</button>
     </form>
+    <ModelList />
+    </>
   );
 }
 
@@ -294,9 +343,13 @@ const TABS: { key: string; label: string; min: Role; el: () => ReactElement; hin
   { key: "makine", label: "Makine", min: "manager", el: AssetForm, hint: "Filoya yeni makine ekleyin." },
   { key: "katalog", label: "Katalog kalemi", min: "manager", el: CatalogForm, hint: "Lastik ebadı, silindir modeli gibi parça tipleri." },
   { key: "model", label: "Makine modeli", min: "manager", el: ModelForm, hint: "Üretici + model ve pozisyon şablonu." },
+  { key: "tipler", label: "Parça tipleri", min: "manager", el: CategoriesPanel, hint: "Firmanıza özel parça tipleri ve sahada ne ölçüleceği." },
+  { key: "sablon", label: "Pozisyon şablonları", min: "manager", el: TemplatesPanel, hint: "Makine tipinin yuvaları ve şemadaki yerleri." },
   { key: "saha", label: "Saha", min: "manager", el: SiteForm, hint: "Maden, liman, şantiye veya depo." },
   { key: "excel", label: "Excel'den içe aktar", min: "manager", el: ImportPanel, hint: "Mevcut lastik listenizi tek seferde sisteme alın." },
 ];
+
+const WIDE = new Set(["excel", "tipler", "sablon", "model"]);
 
 export function RegisterPage() {
   const { can } = useAuth();
@@ -313,7 +366,7 @@ export function RegisterPage() {
           <button key={t.key} role="tab" aria-selected={t.key === active.key} onClick={() => setParams({ sekme: t.key })}>{t.label}</button>
         ))}
       </div>
-      <Panel className={active.key === "excel" ? "" : "narrow"} title={active.label} sub={active.hint}>
+      <Panel className={WIDE.has(active.key) ? "" : "narrow"} title={active.label} sub={active.hint}>
         <Form key={active.key} />
       </Panel>
     </>

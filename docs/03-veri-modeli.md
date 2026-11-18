@@ -102,6 +102,10 @@ Bir ölçüm, ancak ait olduğu kontrol tamamlandığında "son ölçüm" olarak
 
 Örnek: forkliftlerde zincir uzamasını izlemek istiyoruz.
 
+**Firma kendi başına (arayüzden):** Kayıt › Parça tipleri'nde "Zincir" tipini ve "Uzama (%)" ölçümünü tanımlar; Kayıt › Pozisyon şablonları'nda ortak forklift şablonunu kopyalayıp `MAST-CHAIN-L`, `MAST-CHAIN-R` yuvalarını şemaya sürükler; şablonu bir makine modeline bağlar. Bu satırlar firmanın kendi `tenant_id`'siyle yazılır, yalnızca o firma görür (`POST /catalog/categories`, `POST|PUT /catalog/templates`). Firma, ortak kütüphanedeki bir kodu (ör. `tire`) kendi tipine veremez: lastik ve jant kuralları koda bağlıdır.
+
+**Ortak kütüphaneye (her firmaya) eklemek için:**
+
 1. Yeni bir migrasyon dosyasında kategori ekle: `insert into part_categories (tenant_id, code, name, measurement_profile) values (null, 'chain', 'Zincir', '[{"metric":"elongation_pct","label":"Uzama","unit":"%","required":true,"min":0,"max":10}]');`
 2. Forklift şablonuna pozisyon ekle: `MAST-CHAIN-L`, `MAST-CHAIN-R`, kategori `chain`.
 3. Katalogda zincir parçasını `expected_life_hours` ile tanımla.
@@ -114,7 +118,7 @@ Faz 2 ve Faz 4'te bu modelin önüne tedarik ve üretim tarafı bağlanır. Tasl
 
 | Faz | Tablolar | Bağlantı noktası |
 |---|---|---|
-| 2 | ✅ `stock_movements` (depo = `sites`, `0012`); ✅ `suppliers`, `purchase_orders` (talep ve sipariş aynı tabloda, `status`), `purchase_order_lines`, `purchase_receipts` (`0014`); ✅ `maintenance_plans`, `maintenance_plan_parts`, `work_orders`, `work_order_parts` (`0015`) | `parts.min_stock`, `part_items.status = in_stock`, `v_purchase_needs`, `v_maintenance_due`, `v_asset_maintenance`, `asset_tco()` (`0016`, tablo eklemez; `0017` `assets.downtime_cost_per_hour`) |
-| 4 | `boms`, `bom_lines`, `routings`, `production_orders`, `scrap_records` | `parts` aynı katalog; üretilen makine `assets` olarak doğar |
+| 2 | ✅ `stock_movements` (depo = `sites`, `0012`); ✅ `suppliers`, `purchase_orders` (talep ve sipariş aynı tabloda, `status`), `purchase_order_lines`, `purchase_receipts` (`0014`); ✅ `maintenance_plans`, `maintenance_plan_parts`, `work_orders`, `work_order_parts` (`0015`) | `parts.min_stock`, `part_items.status = in_stock`, `v_purchase_needs`, `v_maintenance_due`, `v_asset_maintenance`, `asset_tco()` (`0016`, tablo eklemez; `0017` `assets.downtime_cost_per_hour`); şablonun makine resmi `attachments` içinde `entity_type = 'position_template'` (`0018`); model parça listesi `model_parts` (`0019`) |
+| 4 | ✅ `boms`, `bom_lines` (`0020`, ürün ağacı); ✅ `bom_operations` (rota), `production_orders`, `production_order_ops`, `production_time_logs` (`0021`); ✅ `production_order_materials` (emrin malzemeleri: plan, kullanılan, fire sebebi), `production_orders` üzerinde sağlam / hurda / depo (`0022`) | `parts` aynı katalog; üretilen makine `assets` olarak doğar |
 
 Böylece bir makine imalatçısı ürettiği makineyi müşteriye teslim ettiğinde, o makinenin parça ikizleri hazır olarak müşteri tarafına geçebilir. Bu, uzun vadede ürünün en güçlü farklılaştırıcısı olabilir.

@@ -194,6 +194,49 @@ select pg_temp.seed_rim('LD-09', 'A1-R-J', 'TR25-0162', 3000,  150);
 select pg_temp.seed_rim('LD-09', 'A2-L-J', 'TR25-0163', 3000,  150);
 select pg_temp.seed_rim('LD-09', 'A2-R-J', 'TR25-0164', 3000,  150);
 
+-- ---------- Sökülmüş parçalar (son 12 ay): sökme sebebi raporu dolu gelsin ----------
+-- Hurdaya ayrılmış ikizler; takma + sökme + hurda olaylarıyla. Alış maliyeti yazılmaz ki
+-- maliyet raporunun (TCO) sayıları yukarıdaki takılı parçalardan gelsin.
+create function pg_temp.seed_removed(
+  p_asset_code text, p_position text, p_part uuid, p_serial text, p_part_hours numeric, p_reason text, p_days_ago int
+) returns void language plpgsql as $$
+declare
+  t   uuid := '11111111-1111-1111-1111-111111111111';
+  a   public.assets;
+  pid uuid;
+  gone timestamptz := now() - make_interval(days => p_days_ago);
+begin
+  select * into a from public.assets where code = p_asset_code and tenant_id = t;
+  insert into public.part_items (tenant_id, part_id, serial_no, qr_code, status, site_id, hours_accumulated, acquired_at)
+  values (t, p_part, p_serial, 'ST-P-' || p_serial, 'scrapped', a.site_id, p_part_hours, (gone - interval '500 days')::date)
+  returning id into pid;
+  insert into public.part_events (tenant_id, part_item_id, event_type, asset_id, position, part_hours, occurred_at)
+  values (t, pid, 'installed', a.id, p_position, 0, gone - interval '480 days');
+  insert into public.part_events (tenant_id, part_item_id, event_type, asset_id, position, part_hours, reason_code, occurred_at)
+  values (t, pid, 'removed', a.id, p_position, p_part_hours, p_reason, gone);
+  insert into public.part_events (tenant_id, part_item_id, event_type, part_hours, reason_code, occurred_at)
+  values (t, pid, 'scrapped', p_part_hours, p_reason, gone);
+end $$;
+
+-- 29.5R25 (yükleyiciler): aşınmayla biten ~6.800 saat, kesikle biten ~2.400 saat
+select pg_temp.seed_removed('LD-07', 'A1-L', '51111111-0000-0000-0000-000000000001', 'MX29-0188', 6800, 'worn_out', 205);
+select pg_temp.seed_removed('LD-07', 'A1-R', '51111111-0000-0000-0000-000000000001', 'MX29-0189', 7100, 'worn_out', 205);
+select pg_temp.seed_removed('LD-09', 'A2-L', '51111111-0000-0000-0000-000000000001', 'MX29-0204', 6500, 'worn_out', 160);
+select pg_temp.seed_removed('LD-07', 'A2-L', '51111111-0000-0000-0000-000000000001', 'MX29-0231', 2100, 'cut', 300);
+select pg_temp.seed_removed('LD-07', 'A2-R', '51111111-0000-0000-0000-000000000001', 'MX29-0232', 3400, 'cut', 240);
+select pg_temp.seed_removed('LD-07', 'A2-L', '51111111-0000-0000-0000-000000000001', 'MX29-0260', 1800, 'cut', 110);
+select pg_temp.seed_removed('LD-09', 'A1-R', '51111111-0000-0000-0000-000000000001', 'MX29-0245', 2900, 'impact', 275);
+select pg_temp.seed_removed('LD-09', 'A1-L', '51111111-0000-0000-0000-000000000001', 'MX29-0251', 4100, 'pressure_loss', 130);
+-- 18.00-25 (reach stacker)
+select pg_temp.seed_removed('RS-02', 'A1-LO', '51111111-0000-0000-0000-000000000002', 'BS18-2101', 5200, 'worn_out', 320);
+select pg_temp.seed_removed('RS-02', 'A1-RO', '51111111-0000-0000-0000-000000000002', 'BS18-2102', 4900, 'worn_out', 320);
+select pg_temp.seed_removed('RS-02', 'A2-L',  '51111111-0000-0000-0000-000000000002', 'BS18-2140', 3100, 'separation', 190);
+select pg_temp.seed_removed('RS-02', 'A1-LI', '51111111-0000-0000-0000-000000000002', 'BS18-2155', 2600, 'cut', 95);
+-- forklift dolgu lastiği ve bir silindir
+select pg_temp.seed_removed('FL-14', 'A1-L', '51111111-0000-0000-0000-000000000003', 'TB07-0911', 3900, 'worn_out', 150);
+select pg_temp.seed_removed('FL-14', 'A1-R', '51111111-0000-0000-0000-000000000003', 'TB07-0912', 1500, 'impact', 60);
+select pg_temp.seed_removed('LD-07', 'LIFT-CYL-L', '51111111-0000-0000-0000-000000000005', 'VL-220-0031', 9800, 'leak', 220);
+
 -- ---------- Sarf malzemeleri ve stok hareketleri (Faz 2) ----------
 insert into public.parts (id, tenant_id, category_id, manufacturer, part_no, name, specs, list_cost, min_stock, unit)
 select v.id::uuid, '11111111-1111-1111-1111-111111111111',
@@ -239,6 +282,56 @@ values ('71111111-0000-0000-0000-000000000001', '11111111-1111-1111-1111-1111111
 insert into public.purchase_order_lines (tenant_id, order_id, part_id, qty, unit_cost) values
   ('11111111-1111-1111-1111-111111111111', '71111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000011', 10, 84.00),
   ('11111111-1111-1111-1111-111111111111', '71111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000013', 1, 335.00);
+
+-- Geçmiş siparişler (son 12 ay, hepsi teslim alınmış): tedarikçi karşılaştırma raporu dolu gelsin.
+-- Yalnızca sipariş + teslim alma kaydı yazılır; stok defterine dokunulmaz (stok sayıları yukarıdaki
+-- hareketlerden gelir). Numara 'G' ile başlar ki yeni siparişlerin sırasını (SA-<yıl>-0002) kaydırmasın.
+insert into public.suppliers (id, tenant_id, name, contact_name, phone, email, lead_time_days, notes) values
+  ('61111111-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Ege Endüstriyel Tedarik',
+   'Murat Şahin', '+90 232 000 00 03', 'siparis@egeendustriyel.test', 10, 'Filtre, yağ ve iş makinesi lastiği');
+
+create temp table _po_hist as
+select v.n, v.supplier::uuid as supplier, v.part::uuid as part, v.qty, v.cost,
+       now() - make_interval(days => v.days_ago) as ordered_at, v.promised, v.took,
+       ('72111111-0000-0000-0000-' || lpad(v.n::text, 12, '0'))::uuid as order_id
+from (values
+  -- hidrolik filtre: yetkili servis hızlı ama pahalı, Ege ucuz ama geç
+  (1,  '61111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000011', 12, 84.00, 330, 7, 6),
+  (2,  '61111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000011', 12, 84.00, 245, 7, 7),
+  (3,  '61111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000011', 10, 86.00, 160, 7, 5),
+  (4,  '61111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000011', 12, 88.00, 75,  7, 9),
+  (5,  '61111111-0000-0000-0000-000000000003', '51111111-0000-0000-0000-000000000011', 20, 79.00, 290, 10, 13),
+  (6,  '61111111-0000-0000-0000-000000000003', '51111111-0000-0000-0000-000000000011', 20, 78.00, 120, 10, 16),
+  -- motor yağı: Ege hem ucuz hem hızlı
+  (7,  '61111111-0000-0000-0000-000000000003', '51111111-0000-0000-0000-000000000012', 400, 4.05, 310, 5, 3),
+  (8,  '61111111-0000-0000-0000-000000000003', '51111111-0000-0000-0000-000000000012', 400, 4.10, 200, 5, 4),
+  (9,  '61111111-0000-0000-0000-000000000003', '51111111-0000-0000-0000-000000000012', 200, 4.00, 95,  5, 3),
+  (10, '61111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000012', 200, 4.60, 150, 7, 6),
+  -- 29.5R25 lastik: bayi düzenli, Ege ucuz ama çok geç
+  (11, '61111111-0000-0000-0000-000000000002', '51111111-0000-0000-0000-000000000001', 2, 9800.00, 340, 14, 13),
+  (12, '61111111-0000-0000-0000-000000000002', '51111111-0000-0000-0000-000000000001', 4, 9650.00, 210, 14, 16),
+  (13, '61111111-0000-0000-0000-000000000002', '51111111-0000-0000-0000-000000000001', 2, 9700.00, 85,  14, 12),
+  (14, '61111111-0000-0000-0000-000000000003', '51111111-0000-0000-0000-000000000001', 2, 9400.00, 180, 20, 27),
+  -- keçe takımı: tek tedarikçi
+  (15, '61111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000013', 2, 340.00, 260, 7, 7),
+  (16, '61111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000013', 2, 335.00, 130, 7, 8)
+) as v(n, supplier, part, qty, cost, days_ago, promised, took);
+
+insert into public.purchase_orders (id, tenant_id, number, supplier_id, site_id, status, expected_at, requested_by, ordered_by, ordered_at, closed_at, created_at)
+select h.order_id, '11111111-1111-1111-1111-111111111111', 'SA-' || to_char(h.ordered_at, 'YYYY') || '-G' || lpad(h.n::text, 2, '0'),
+       h.supplier, '21111111-0000-0000-0000-000000000002', 'received', (h.ordered_at + make_interval(days => h.promised))::date,
+       (select id from public.app_users where email = 'teknisyen@demo.sparetwin.dev'),
+       (select id from public.app_users where email = 'yonetici@demo.sparetwin.dev'),
+       h.ordered_at, h.ordered_at + make_interval(days => h.took), h.ordered_at - interval '1 day'
+  from _po_hist h;
+insert into public.purchase_order_lines (tenant_id, order_id, part_id, qty, unit_cost, received_qty)
+select '11111111-1111-1111-1111-111111111111', h.order_id, h.part, h.qty, h.cost, h.qty from _po_hist h;
+insert into public.purchase_receipts (tenant_id, order_id, line_id, qty, site_id, ref, received_by, received_at)
+select '11111111-1111-1111-1111-111111111111', h.order_id, l.id, h.qty, '21111111-0000-0000-0000-000000000002',
+       'IRS-G' || lpad(h.n::text, 2, '0'), (select id from public.app_users where email = 'teknisyen@demo.sparetwin.dev'),
+       h.ordered_at + make_interval(days => h.took)
+  from _po_hist h join public.purchase_order_lines l on l.order_id = h.order_id;
+drop table _po_hist;
 
 -- ---------- Bakım planları ve iş emirleri (Faz 2) ----------
 -- L220H modelinin tüm makineleri için 500 saat bakımı; RS-02 için 6 aylık takvim bakımı.

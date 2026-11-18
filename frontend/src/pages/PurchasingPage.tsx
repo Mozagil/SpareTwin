@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
-  useAssets, useNeeds, usePurchaseActions, usePurchaseOrder, usePurchaseOrders, useSites, useStock, useSuppliers,
+  useAssets, useNeeds, usePurchaseActions, usePurchaseOrder, usePurchaseOrders, useSites, useStock, useSupplierComparison, useSuppliers,
 } from "../api/hooks";
 import type { PoStatus, PurchaseNeed, PurchaseOrderDetail, PurchaseOrderLine, StockRow, Supplier } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { BandChip, Empty, ErrorNote, Field, Loading, Modal, Panel } from "../components/ui";
 import { categoryLabel, date, dateTime, num, num1, usd } from "../lib/format";
 import { PO_STATUS_BAND, PO_STATUS_LABEL, lineTotal, needItemLabel, needWhy, orderProgress } from "../lib/purchasing";
+import { lastBuys } from "../lib/suppliers";
+import { SupplierComparePanel } from "./SupplierComparePanel";
 
 const q = (v: number | string | null | undefined, unit: string) =>
   v == null ? "–" : `${Number.isInteger(Number(v)) ? num(Number(v)) : num1(Number(v))} ${unit}`;
 const parseNum = (v: string) => Number(v.replace(",", "."));
 const today = () => new Date().toISOString().slice(0, 10);
 
-type Tab = "ihtiyac" | "siparisler" | "tedarikciler";
+type Tab = "ihtiyac" | "siparisler" | "tedarikciler" | "karsilastirma";
 
 // ---------- Yeni talep ----------
 interface DraftLine { part_id: string; qty: string; unit_cost: string; asset_id: string; notes: string }
@@ -26,6 +28,7 @@ function NewOrderModal({ prefill, onClose, onCreated }: {
   const sites = useSites();
   const assets = useAssets();
   const stock = useStock({});
+  const history = useSupplierComparison(12);
   const { createOrder } = usePurchaseActions();
   const [supplier, setSupplier] = useState("");
   const [site, setSite] = useState("");
@@ -74,6 +77,7 @@ function NewOrderModal({ prefill, onClose, onCreated }: {
         <div className="po-lines">
           {lines.map((l, i) => {
             const c = byId(l.part_id);
+            const buys = lastBuys(history.data?.parts.find((p) => p.part_id === l.part_id));
             return (
               <div className="po-line" key={i}>
                 <select value={l.part_id} onChange={(e) => {
@@ -96,6 +100,7 @@ function NewOrderModal({ prefill, onClose, onCreated }: {
                   <div className="po-line-hint muted small">
                     Stokta {q(c.qty, c.unit)}{c.min_stock ? `, kritik seviye ${q(c.min_stock, c.unit)}` : ""}
                     {c.is_serialized ? " · seri numaralı, teslimde her adet için seri girilir" : ""}
+                    {buys && <div>Son 12 ay, ortalama fiyat ve teslim: {buys}</div>}
                   </div>
                 )}
               </div>
@@ -511,6 +516,7 @@ export function PurchasingPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "ihtiyac", label: "İhtiyaç" }, { key: "siparisler", label: "Siparişler" }, { key: "tedarikciler", label: "Tedarikçiler" },
+    { key: "karsilastirma", label: "Karşılaştırma" },
   ];
   return (
     <>
@@ -521,6 +527,7 @@ export function PurchasingPage() {
       {tab === "ihtiyac" && <NeedsPanel onRequest={setDraft} />}
       {tab === "siparisler" && <OrdersPanel onOpen={(id) => set("siparis", id)} onNew={() => setDraft([])} />}
       {tab === "tedarikciler" && <SuppliersPanel />}
+      {tab === "karsilastirma" && <SupplierComparePanel />}
       {draft && (
         <NewOrderModal prefill={draft} onClose={() => { setDraft(null); if (newFor) set("yeni", ""); }}
                        onCreated={(id) => { setDraft(null); const n = new URLSearchParams(params); n.delete("yeni"); n.set("sekme", "siparisler"); n.set("siparis", id); setParams(n); }} />
