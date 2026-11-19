@@ -1,224 +1,138 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router";
-import { useCategoryDefs, useSettingsActions, useTemplateDefs, useTenantSettings } from "../api/hooks";
-import type { TemplateDef } from "../api/types";
+import { Navigate } from "react-router";
+import { useAudit, useOrganization, useUpdateOrganization } from "../api/hooks";
+import type { AuditRow } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { BandChip, Empty, ErrorNote, Field, Loading, Panel } from "../components/ui";
-import { angleLabel } from "../lib/format";
+import { Empty, ErrorNote, Field, Loading, Panel } from "../components/ui";
+import { dateTime } from "../lib/format";
+import { describeAudit, THRESHOLD_FIELDS, toForm, validateThresholds, type ThresholdForm } from "../lib/settings";
 
-const ANGLES = ["tread", "sidewall", "damage_closeup", "overview", "nameplate"] as const;
-const ANGLE_EXTRA: Record<string, string> = { overview: "Genel görünüm", nameplate: "Etiket / plaka" };
-const aLabel = (a: string) => ANGLE_EXTRA[a] ?? angleLabel(a);
+function ThresholdsForm() {
+  const org = useOrganization();
+  const save = useUpdateOrganization();
+  const [name, setName] = useState("");
+  const [form, setForm] = useState<ThresholdForm | null>(null);
+  const [saved, setSaved] = useState(false);
 
-function General() {
-  const s = useTenantSettings();
-  const { save } = useSettingsActions();
-  const [f, setF] = useState({ inspection_interval_days: "", purchase_horizon_hours: "" });
-  const [mods, setMods] = useState({ tireiq: true, parts: true });
   useEffect(() => {
-    if (s.data) {
-      setF({ inspection_interval_days: String(s.data.inspection_interval_days), purchase_horizon_hours: String(s.data.purchase_horizon_hours) });
-      setMods({ tireiq: s.data.modules.tireiq, parts: s.data.modules.parts });
+    if (org.data && form === null) {
+      setForm(toForm(org.data.thresholds));
+      setName(org.data.name);
     }
-  }, [s.data]);
-  if (s.isLoading) return <Loading />;
-  const edit = s.data?.can_edit;
+  }, [org.data, form]);
+
+  if (org.isLoading || !form) return <Loading />;
+  if (org.error) return <ErrorNote error={org.error} />;
+  const data = org.data!;
+  const { errors, values } = validateThresholds(form);
+  const dirty = name.trim() !== data.name || JSON.stringify(values) !== JSON.stringify(data.thresholds);
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    save.mutate({ inspection_interval_days: Number(f.inspection_interval_days), purchase_horizon_hours: Number(f.purchase_horizon_hours), modules: mods });
+    if (!values) return;
+    setSaved(false);
+    save.mutate({ name: name.trim() !== data.name ? name.trim() : undefined, thresholds: values },
+      { onSuccess: (o) => { setForm(toForm(o.thresholds)); setName(o.name); setSaved(true); } });
   };
+
   return (
-    <form className="form narrow-form" onSubmit={submit}>
+    <form className="form" onSubmit={submit}>
+      <Field label="Firma adı">
+        <input value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={120} required />
+      </Field>
       <fieldset className="fieldset">
-        <legend>Modüller</legend>
-        <p className="muted small">Filo, saha kontrolü, parçalar, kayıt ve etiketler her firmada açıktır. Kullanmadığınız modülü kapatınca menüden, bildirimlerden ve dashboard'dan kalkar; veriler silinmez.</p>
-        <label className="module-row">
-          <input type="checkbox" checked={mods.tireiq} disabled={!edit} onChange={(e) => setMods({ ...mods, tireiq: e.target.checked })} />
-          <span><strong>Lastik ve jant (TireIQ)</strong><span className="muted small">Lastik aşınması ve maliyeti, jant muayenesi (NDT), lastiğe özel öneriler</span></span>
-        </label>
-        <label className="module-row">
-          <input type="checkbox" checked={mods.parts} disabled={!edit} onChange={(e) => setMods({ ...mods, parts: e.target.checked })} />
-          <span><strong>Yedek parça ve bakım</strong><span className="muted small">Stok, satınalma, bakım planları, arıza/duruş, toplam sahip olma maliyeti</span></span>
-        </label>
-        <label className="module-row disabled">
-          <input type="checkbox" checked={false} disabled />
-          <span><strong>KOBİ ERP</strong> <span className="chip chip-plain">Yakında</span><span className="muted small">Üretim emirleri, ürün ağacı (BOM), MRP · Faz 4</span></span>
-        </label>
+        <legend>Uyarı eşikleri</legend>
+        <p className="muted small" style={{ margin: 0 }}>
+          Dashboard'daki renkler, bildirimler ve PDF rapor bu eşiklere göre hesaplanır. Değişiklik anında tüm filoya uygulanır;
+          geçmiş ölçümler değişmez.
+        </p>
+        <div className="form-row">
+          {THRESHOLD_FIELDS.map((d) => (
+            <Field key={d.key} label={`${d.label} (${d.unit})`} hint={errors[d.key] ?? `${d.hint}. Varsayılan ${data.defaults[d.key]}`}>
+              <input inputMode="decimal" value={form[d.key]} aria-invalid={!!errors[d.key]}
+                     onChange={(e) => { setSaved(false); setForm({ ...form, [d.key]: e.target.value }); }} />
+            </Field>
+          ))}
+        </div>
       </fieldset>
-      <Field label="Saha kontrolü aralığı (gün)" hint="Bu kadar gün kontrol edilmeyen makine için bildirim gelir">
-        <input type="number" min={1} max={365} value={f.inspection_interval_days} disabled={!edit}
-               onChange={(e) => setF({ ...f, inspection_interval_days: e.target.value })} />
-      </Field>
-      <Field label="Satınalma ufku (çalışma saati)" hint="Önerilerde bu kadar saat içinde değişecek lastikler hesaba katılır; tedarik sürenize göre ayarlayın">
-        <input type="number" min={100} max={10000} step={100} value={f.purchase_horizon_hours} disabled={!edit}
-               onChange={(e) => setF({ ...f, purchase_horizon_hours: e.target.value })} />
-      </Field>
       <ErrorNote error={save.error} />
-      {save.isSuccess && <div className="success-note" role="status">Kaydedildi.</div>}
-      {edit ? <div><button className="btn btn-primary" disabled={save.isPending}>Kaydet</button></div>
-            : <p className="muted small">Firma ayarlarını sahip veya admin değiştirebilir.</p>}
+      <div className="row-actions" style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+        {saved && !dirty && <span className="muted small">Kaydedildi</span>}
+        <button type="button" className="btn btn-ghost" disabled={!dirty || save.isPending}
+                onClick={() => { setForm(toForm(data.thresholds)); setName(data.name); }}>Vazgeç</button>
+        <button type="button" className="btn btn-ghost" disabled={save.isPending}
+                onClick={() => setForm(toForm(data.defaults))}>Varsayılanlara dön</button>
+        <button className="btn btn-primary" disabled={!dirty || !values || save.isPending}>Kaydet</button>
+      </div>
     </form>
   );
 }
 
-type Row = { metric: string; label: string; unit: string; required: boolean; min: string; max: string };
-
-function Categories() {
-  const c = useCategoryDefs();
-  const { can } = useAuth();
-  const { addCategory } = useSettingsActions();
-  const [f, setF] = useState({ code: "", name: "", is_serialized: true });
-  const [rows, setRows] = useState<Row[]>([]);
-  const [angles, setAngles] = useState<string[]>([]);
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    addCategory.mutate({
-      ...f,
-      measurement_profile: rows.filter((r) => r.metric && r.label).map((r) => ({
-        metric: r.metric, label: r.label, unit: r.unit || null, required: r.required,
-        min: r.min === "" ? null : Number(r.min), max: r.max === "" ? null : Number(r.max),
-      })),
-      required_photo_angles: angles,
-    }, { onSuccess: () => { setF({ code: "", name: "", is_serialized: true }); setRows([]); setAngles([]); } });
-  };
-  if (c.isLoading) return <Loading />;
-  return (
-    <div className="stack">
-      <div className="table-wrap">
-        <table className="table">
-          <thead><tr><th>Kategori</th><th>Kod</th><th>Takip</th><th>Ölçümler</th><th>Zorunlu fotoğraflar</th><th className="num">Katalog</th><th /></tr></thead>
-          <tbody>
-            {c.data!.map((x) => (
-              <tr key={x.id}>
-                <td><strong>{x.name}</strong></td><td><code>{x.code}</code></td>
-                <td className="small">{x.is_serialized ? "Seri numaralı" : "Miktarla (sarf)"}</td>
-                <td className="small">{x.measurement_profile.map((m) => `${m.label}${m.unit ? ` (${m.unit})` : ""}${m.required ? " *" : ""}`).join(", ") || "–"}</td>
-                <td className="small">{x.required_photo_angles.map(aLabel).join(", ") || "–"}</td>
-                <td className="num">{x.catalog_items}</td>
-                <td>{x.library ? <BandChip band="unknown">Kütüphane</BandChip> : <BandChip band="ok">Firmanın</BandChip>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {can("manager") && (
-        <form className="form" onSubmit={submit}>
-          <h3 className="mini-head">Firmaya özel kategori ekle</h3>
-          <p className="muted small">Örn. zincir, hidrolik hortum, kova dişi. Kategori ekledikten sonra Kayıt → Katalog kalemi ile bu kategoride kalem tanımlayabilirsiniz.</p>
-          <div className="form-row">
-            <Field label="Kod" hint="küçük harf, rakam ve _ (ör. zincir)"><input value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} required /></Field>
-            <Field label="Ad"><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required /></Field>
-          </div>
-          <label className="inline-check"><input type="checkbox" checked={f.is_serialized} onChange={(e) => setF({ ...f, is_serialized: e.target.checked })} /> Seri numarasıyla tek tek izlenir (işaretsizse miktarla izlenen sarf malzemesi)</label>
-          <fieldset className="fieldset">
-            <legend>Kontrolde ölçülecekler</legend>
-            {rows.map((r, i) => (
-              <div key={i} className="profile-row">
-                <input placeholder="kod (ör. uzama)" value={r.metric} aria-label="Ölçüm kodu" onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, metric: e.target.value } : x))} />
-                <input placeholder="ad (ör. Uzama)" value={r.label} aria-label="Ölçüm adı" onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-                <input placeholder="birim" value={r.unit} aria-label="Birim" onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} />
-                <input placeholder="en az" inputMode="decimal" value={r.min} aria-label="En az" onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, min: e.target.value } : x))} />
-                <input placeholder="en çok" inputMode="decimal" value={r.max} aria-label="En çok" onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, max: e.target.value } : x))} />
-                <label className="inline-check"><input type="checkbox" checked={r.required} onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, required: e.target.checked } : x))} /> zorunlu</label>
-                <button type="button" className="btn btn-small" onClick={() => setRows(rows.filter((_, j) => j !== i))}>Sil</button>
-              </div>
-            ))}
-            <button type="button" className="btn btn-ghost btn-small" onClick={() => setRows([...rows, { metric: "", label: "", unit: "", required: false, min: "", max: "" }])}>Ölçüm ekle</button>
-          </fieldset>
-          <fieldset className="fieldset">
-            <legend>Zorunlu fotoğraflar</legend>
-            <div className="check-row">
-              {ANGLES.map((a) => (
-                <label key={a} className="inline-check"><input type="checkbox" checked={angles.includes(a)}
-                  onChange={(e) => setAngles(e.target.checked ? [...angles, a] : angles.filter((x) => x !== a))} /> {aLabel(a)}</label>
-              ))}
-            </div>
-          </fieldset>
-          <ErrorNote error={addCategory.error} />
-          <div><button className="btn btn-primary" disabled={addCategory.isPending}>Kategori ekle</button></div>
-        </form>
-      )}
-    </div>
-  );
+function Detail({ d }: { d: AuditRow["detail"] }) {
+  if (!d) return null;
+  const parts: string[] = [];
+  const th = d.thresholds as Record<string, { from: number; to: number }> | undefined;
+  if (th) for (const [k, v] of Object.entries(th)) parts.push(`${THRESHOLD_FIELDS.find((f) => f.key === k)?.label ?? k}: ${v.from} → ${v.to}`);
+  const nm = d.name as { from: string; to: string } | undefined;
+  if (nm) parts.push(`ad: ${nm.from} → ${nm.to}`);
+  if (typeof d.notification === "string") parts.push(`${d.notification}${d.state ? ` → ${d.state === "acknowledged" ? "üstlenildi" : "gizlendi"}` : " → geri alındı"}`);
+  if (typeof d.query === "string") parts.push(d.query);
+  return parts.length ? <div className="muted small">{parts.join(" · ")}</div> : null;
 }
 
-function TemplateCard({ t }: { t: TemplateDef }) {
-  const { can } = useAuth();
-  const cats = useCategoryDefs();
-  const { copyTemplate, addPosition, deletePosition } = useSettingsActions();
-  const [name, setName] = useState(`${t.name} (firmamız)`);
-  const [p, setP] = useState({ code: "", label: "", category_code: "", axle: "" });
-  const err = copyTemplate.error ?? addPosition.error ?? deletePosition.error;
+function AuditLog() {
+  const [q, setQ] = useState("");
+  const [limit, setLimit] = useState(100);
+  const rows = useAudit({ q: q.trim() || undefined, limit });
+  const data = rows.data ?? [];
   return (
-    <Panel title={t.name} sub={`${t.library ? "Ortak kütüphane" : "Firmanın şablonu"} · çizim: ${t.layout} · ${t.models} makine modelinde kullanılıyor`}>
-      <div className="table-wrap">
-        <table className="table">
-          <thead><tr><th>Kod</th><th>Pozisyon</th><th>Kategori</th><th>Aks</th><th>Şemada</th><th /></tr></thead>
-          <tbody>
-            {t.positions.map((x) => (
-              <tr key={x.code}>
-                <td><code>{x.code}</code></td><td>{x.label}</td><td className="small">{cats.data?.find((c) => c.code === x.category_code)?.name ?? x.category_code}</td>
-                <td>{x.axle ?? "–"}</td><td className="small">{x.on_schematic ? "evet" : "tabloda"}</td>
-                <td className="row-actions">{!t.library && can("manager") && <button className="btn btn-small" onClick={() => deletePosition.mutate({ id: t.id, code: x.code })}>Sil</button>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <>
+      <div className="form-row" style={{ marginBottom: 12 }}>
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Yol veya eylem ara (örn. install, login)"
+               aria-label="Denetim kaydında ara" />
       </div>
-      {can("manager") && (t.library ? (
-        <form className="filters" onSubmit={(e) => { e.preventDefault(); copyTemplate.mutate({ name, copy_from: t.id }); }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} aria-label="Yeni şablon adı" />
-          <button className="btn btn-ghost" disabled={copyTemplate.isPending}>Kopyala ve düzenle</button>
-        </form>
+      {rows.isLoading ? <Loading /> : rows.error ? <ErrorNote error={rows.error} /> : data.length === 0 ? (
+        <Empty>Kayıt yok.</Empty>
       ) : (
-        <form className="filters" onSubmit={(e) => { e.preventDefault(); addPosition.mutate({ id: t.id, code: p.code, label: p.label, category_code: p.category_code, axle: p.axle ? Number(p.axle) : null }, { onSuccess: () => setP({ code: "", label: "", category_code: "", axle: "" }) }); }}>
-          <input placeholder="Kod (ör. A3-L)" value={p.code} onChange={(e) => setP({ ...p, code: e.target.value })} aria-label="Pozisyon kodu" required />
-          <input placeholder="Ad (ör. Üçüncü aks sol)" value={p.label} onChange={(e) => setP({ ...p, label: e.target.value })} aria-label="Pozisyon adı" required />
-          <select value={p.category_code} onChange={(e) => setP({ ...p, category_code: e.target.value })} aria-label="Kategori" required>
-            <option value="">Kategori</option>
-            {cats.data?.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-          </select>
-          <input placeholder="Aks" inputMode="numeric" value={p.axle} onChange={(e) => setP({ ...p, axle: e.target.value })} aria-label="Aks" className="qty-input" />
-          <button className="btn btn-ghost" disabled={addPosition.isPending}>Pozisyon ekle</button>
-        </form>
-      ))}
-      <ErrorNote error={err} />
-    </Panel>
+        <div className="table-wrap">
+          <table className="table audit">
+            <thead><tr><th>Zaman</th><th>Kim</th><th>Ne</th><th>İstek</th><th className="num">Sonuç</th></tr></thead>
+            <tbody>
+              {data.map((r) => (
+                <tr key={r.id}>
+                  <td className="nowrap">{dateTime(r.at)}</td>
+                  <td>{r.user_name ?? r.user_email ?? <span className="muted">—</span>}{r.user_name && <div className="muted small">{r.user_email}</div>}</td>
+                  <td>{describeAudit(r.entity_type, r.action)}<Detail d={r.detail} /></td>
+                  <td className="muted small mono">{r.method} {r.path}</td>
+                  <td className={`num ${r.status >= 400 ? "t-critical" : ""}`}>{r.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {data.length >= limit && limit < 500 && (
+            <p style={{ textAlign: "center", margin: "12px 0 0" }}>
+              <button className="btn btn-small" onClick={() => setLimit(Math.min(500, limit + 200))}>Daha fazla göster</button>
+            </p>
+          )}
+        </div>
+      )}
+    </>
   );
 }
-
-function Templates() {
-  const t = useTemplateDefs();
-  if (t.isLoading) return <Loading />;
-  if (!t.data?.length) return <Empty>Şablon yok.</Empty>;
-  return (
-    <div className="stack">
-      <p className="muted small">
-        Ortak kütüphanedeki şablonlar değiştirilemez; kopyalayıp düzenleyin. Yeni eklenen pozisyonlar makine sayfasındaki tabloda
-        görünür (şemada çizilmez). Kendi şablonunuzu Kayıt → Makine modeli ile bir modele bağlayın.
-      </p>
-      {t.data.map((x) => <TemplateCard key={x.id} t={x} />)}
-    </div>
-  );
-}
-
-const TABS = [
-  { key: "genel", label: "Genel", el: General },
-  { key: "kategoriler", label: "Parça kategorileri", el: Categories },
-  { key: "sablonlar", label: "Makine şablonları", el: Templates },
-];
 
 export function SettingsPage() {
-  const [params, setParams] = useSearchParams();
-  const active = TABS.find((t) => t.key === params.get("sekme")) ?? TABS[0];
-  const Body = active.el;
+  const { can } = useAuth();
+  if (!can("admin")) return <Navigate to="/" replace />;
   return (
     <>
       <div className="page-head"><h1>Ayarlar</h1></div>
-      <div className="tabs" role="tablist">
-        {TABS.map((t) => <button key={t.key} role="tab" aria-selected={t.key === active.key} onClick={() => setParams({ sekme: t.key })}>{t.label}</button>)}
-      </div>
-      {active.key === "sablonlar" ? <Body /> : <Panel title={active.label}><Body /></Panel>}
+      <p className="sub lead">Firma adı, uyarı eşikleri ve denetim kaydı. Yalnızca yöneticiler görür ve değiştirir.</p>
+      <Panel title="Firma ve eşikler" className="narrow">
+        <ThresholdsForm />
+      </Panel>
+      <Panel title="Denetim kaydı" sub="Durum değiştiren her istek: kim, ne, ne zaman. Kayıtlar değiştirilemez." className="audit-panel">
+        <AuditLog />
+      </Panel>
     </>
   );
 }

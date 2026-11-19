@@ -13,9 +13,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from . import __version__
-from .api import (auth, costs, fleet, images, imports, inspections, labels, lifecycle, media, notifications, operations,
-                  purchasing, registry, settings as settings_api, stock)
+from . import __version__, audit
+from .api import (
+    auth, bom, fleet, images, imports, inspections, labels, library, lifecycle, maintenance, media, notifications, organization,
+    production, production_orders, purchasing, registry, stock, tco, transfers,
+)
 from .config import Settings, get_settings
 from .db import close_pool, http_status_for, init_pool, owner_tx, user_message_for
 from .migrate import run as run_migrations
@@ -88,8 +90,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok", "version": __version__, "mode": settings.deployment_mode}
 
     for r in (auth.router, fleet.router, registry.router, images.router, lifecycle.router, inspections.router,
-              media.router, labels.router, imports.router, notifications.router, stock.router, purchasing.router,
-              operations.router, costs.router, settings_api.router):
+              media.router, labels.router, imports.router, notifications.router, stock.router, organization.router, purchasing.router,
+              maintenance.router, tco.router, library.router, bom.router, production.router,
+              production_orders.router, transfers.router):
         app.include_router(r)
     audit.install(app)  # durum değiştiren her isteği denetim kaydına yazar
     return app

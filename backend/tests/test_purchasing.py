@@ -1,112 +1,179 @@
-"""Satınalma: tedarikçi, öneriler, talep → sipariş → teslim alma, yetki ve izolasyon."""
+"""Satınalma: tedarikçi, ihtiyaç önerisi, talep → sipariş → teslim alma, iptal, bildirim, denetim."""
 
-from conftest import part_id
+from datetime import date, timedelta
 
-PO_TIRES = "71111111-0000-0000-0000-000000000001"   # SA-…-0001: 3 × 18.00-25, sipariş verilmiş, gecikmiş
-PO_FILTER = "71111111-0000-0000-0000-000000000002"  # SA-…-0002: 10 × hidrolik filtre, taslak
-FILTER = "51111111-0000-0000-0000-000000000011"
-SEAL = "51111111-0000-0000-0000-000000000013"
+from conftest import asset_id
+
+FILTER = "51111111-0000-0000-0000-000000000011"   # L220H hidrolik filtresi (adet, kritik 6, stokta 4, siparişte 10)
+SEAL = "51111111-0000-0000-0000-000000000013"     # keçe takımı (stokta 1, kritik 2, siparişte 1)
+TIRE = "51111111-0000-0000-0000-000000000001"     # 29.5R25 (seri numaralı, stokta 1, kritik 2)
+VOLVO = "61111111-0000-0000-0000-000000000001"
+SEED_PO = "71111111-0000-0000-0000-000000000001"
 SOMA = "21111111-0000-0000-0000-000000000002"
-SUPPLIER_OIL = "61111111-0000-0000-0000-000000000002"
+YEAR = date.today().year
 
 
-def sugg(client, h):
-    return {s["name"]: s for s in client.get("/purchasing/suggestions", headers=h).json()}
+def stock_row(client, h, part):
+    return next(s for s in client.get("/stock", headers=h).json() if s["part_id"] == part)
 
 
-def stock_qty(client, h, pid):
-    return float(next(r for r in client.get("/stock", headers=h).json() if r["part_id"] == pid)["qty"])
+def test_tedarikci_listesi_ve_yetki(client, manager, tech):
+    rows = client.get("/purchasing/suppliers", headers=manager).json()
+    volvo = next(s for s in rows if s["id"] == VOLVO)
+    assert volvo["open_orders"] == 1 and volvo["lead_time_days"] == 7
+    body = {"name": "Hidrolik Market", "phone": "0232 000", "lead_time_days": 3}
+    assert client.post("/purchasing/suppliers", headers=tech, json=body).status_code == 403
+    r = client.post("/purchasing/suppliers", headers=manager, json=body)
+    assert r.status_code == 201, r.text
+    sid = r.json()["id"]
+    assert client.post("/purchasing/suppliers", headers=manager, json=body).status_code in (409, 422)  # aynı ad
+    r = client.patch(f"/purchasing/suppliers/{sid}", headers=manager, json={**body, "is_active": False})
+    assert r.status_code == 200 and r.json()["is_active"] is False
+    ids = {s["id"] for s in client.get("/purchasing/suppliers", headers=manager).json()}
+    assert sid not in ids
+    ids = {s["id"] for s in client.get("/purchasing/suppliers", headers=manager, params={"include_inactive": True}).json()}
+    assert sid in ids
 
 
-def test_oneriler_kritik_seviye_yaklasan_degisim_ve_yoldaki(client, manager):
-    s = sugg(client, manager)
-    t = s["29.5R25 L-4 radyal"]
-    assert float(t["suggested_qty"]) == 2 and t["upcoming"] == 1           # 2 + 1 − 1 − 0
-    assert any("LD-07 A2-L (~539 sa)" in r for r in t["reasons"])
-    bias = s["18.00-25 E-4 diyagonal"]
-    assert float(bias["suggested_qty"]) == 1 and float(bias["on_order"]) == 3  # 4 + 1 − 1 − 3
-    assert bias["supplier_name"] == "Anadolu OTR Lastik Ltd."              # son tedarikçi önerilir
-    assert float(s["L220H kaldırma silindiri keçe takımı"]["suggested_qty"]) == 1
-    assert float(s["L220H hidrolik filtresi"]["suggested_qty"]) == 2       # taslak talep yoldaki sayılmaz
-    assert "Motor yağı 15W-40" not in s                                     # stok yeterli
+def test_ihtiyac_onerisi_ve_bildirim(client, manager):
+    needs = {n["part_id"]: n for n in client.get("/purchasing/needs", headers=manager).json()}
+    tire = needs[TIRE]
+    # LD-07 A2-L %13 ile kritik → en az 1 yaklaşan değişim; stokta 1, kritik seviye 2, siparişte 0
+    assert tire["upcoming"] >= 1 and float(tire["in_stock"]) == 1 and float(tire["on_order"]) == 0
+    assert float(tire["need"]) == tire["upcoming"] + 2 - 1
+    assert "LD-07" in {i["asset_code"] for i in tire["items"]}
+    assert all(i["band"] == "critical" or (i["hours_left"] is not None and i["hours_left"] <= 500) for i in tire["items"])
+    # Filtre kritik altında (4 < 6) ama siparişte 10 var → ihtiyaç listesinde değil
+    assert FILTER not in needs
+    # Keçe takımı: 1 + siparişte 1 = 2 = kritik seviye → ihtiyaç yok
+    assert SEAL not in needs
+
+    items = client.get("/notifications", headers=manager).json()["items"]
+    need = [n for n in items if n["kind"] == "purchase_need" and n["link"]["id"] == TIRE]
+    assert len(need) == 1
+    assert need[0]["title"].startswith("LD-07") and "lastik yaklaşıyor, stokta 1 var" in need[0]["title"]
+    assert need[0]["link"]["type"] == "purchasing" and "önerilen sipariş" in need[0]["body"]
+    low = next(n for n in items if n["kind"] == "stock_low" and n["link"]["id"] == FILTER)
+    assert "siparişte 10 adet" in low["body"]
 
 
-def test_talep_duzenleme_ve_siparis_yetkisi(client, manager, tech):
-    r = client.post("/purchase-orders", headers=tech, json={"notes": "Öneriden", "lines": [{"part_id": SEAL, "qty": 2}]})
-    assert r.status_code == 201 and r.json()["status"] == "draft"
-    po = r.json()["id"]
-    assert r.json()["number"].endswith("-0003")
-    d = client.get(f"/purchase-orders/{po}", headers=tech).json()
-    line = d["lines"][0]
-    assert float(line["unit_cost"]) == 340  # boşsa katalog fiyatı
-    assert client.patch(f"/purchase-orders/{po}/lines/{line['id']}", headers=tech, json={"qty": 3}).status_code == 200
-    assert client.post(f"/purchase-orders/{po}/lines", headers=tech, json={"part_id": FILTER, "qty": 5, "unit_cost": 80}).status_code == 201
-    assert len(client.get(f"/purchase-orders/{po}", headers=tech).json()["lines"]) == 2
-    # Teknisyen siparişi veremez; yönetici tedarikçisiz veremez
-    assert client.post(f"/purchase-orders/{po}/order", headers=tech, json={}).status_code == 403
-    r = client.post(f"/purchase-orders/{po}/order", headers=manager, json={})
+def test_talep_siparis_teslim_akisi(client, manager, tech):
+    ld07 = asset_id(client, tech, "LD-07")
+    lines = [{"part_id": FILTER, "qty": 5, "unit_cost": 83},
+             {"part_id": TIRE, "qty": 2, "unit_cost": 9500, "asset_id": ld07, "notes": "A2-L ve A2-R için"}]
+    bad = client.post("/purchasing/orders", headers=tech, json={"lines": [lines[0], lines[0]]})
+    assert bad.status_code == 422
+    r = client.post("/purchasing/orders", headers=tech, json={"site_id": SOMA, "lines": lines, "notes": "Soma bakım"})
+    assert r.status_code == 201, r.text
+    o = r.json()
+    oid = o["id"]
+    assert o["status"] == "draft" and o["number"] == f"SA-{YEAR}-0002" and o["line_count"] == 2
+    assert float(o["total"]) == 5 * 83 + 2 * 9500 and o["requested_by_name"] == "Demo Teknisyen"
+    tire_line = next(ln for ln in o["lines"] if ln["part_id"] == TIRE)
+    filter_line = next(ln for ln in o["lines"] if ln["part_id"] == FILTER)
+    assert tire_line["is_serialized"] and tire_line["asset_code"] == "LD-07"
+
+    # Talep listede, ihtiyaçta "talepte" olarak görünür
+    assert any(x["id"] == oid for x in client.get("/purchasing/orders", headers=tech, params={"open_only": True}).json())
+    need = next(n for n in client.get("/purchasing/needs", headers=tech).json() if n["part_id"] == TIRE)
+    assert float(need["requested"]) == 2
+
+    # Sipariş vermek yönetici işi; tedarikçi şart
+    assert client.post(f"/purchasing/orders/{oid}/status", headers=tech, json={"status": "ordered"}).status_code == 403
+    r = client.post(f"/purchasing/orders/{oid}/status", headers=manager, json={"status": "ordered"})
     assert r.status_code == 422 and "tedarikçi" in r.json()["detail"]
-    client.patch(f"/purchase-orders/{po}", headers=tech, json={"supplier_id": SUPPLIER_OIL})
-    assert client.post(f"/purchase-orders/{po}/order", headers=manager, json={"expected_date": "2030-01-01"}).json()["status"] == "ordered"
-    # Sipariş verildikten sonra satır eklenemez; yoldaki miktar öneriyi kapatır
-    assert client.post(f"/purchase-orders/{po}/lines", headers=tech, json={"part_id": FILTER, "qty": 1}).status_code == 409
-    assert "L220H kaldırma silindiri keçe takımı" not in sugg(client, manager)
-    # Taslak iptal edilebilir
-    assert client.post(f"/purchase-orders/{PO_FILTER}/cancel", headers=manager).json()["status"] == "cancelled"
+    r = client.patch(f"/purchasing/orders/{oid}", headers=tech, json={"supplier_id": VOLVO, "expected_at": str(date.today() + timedelta(days=7))})
+    assert r.status_code == 200 and r.json()["supplier_name"] == "Volvo Yetkili Servis"
+    r = client.post(f"/purchasing/orders/{oid}/status", headers=manager, json={"status": "ordered"})
+    assert r.status_code == 200 and r.json()["status"] == "ordered" and r.json()["ordered_by_name"] == "Demo Yönetici"
+    r = client.patch(f"/purchasing/orders/{oid}", headers=tech, json={"lines": lines})
+    assert r.status_code == 422 and "kalemler değiştirilemez" in r.json()["detail"]
+    need = next(n for n in client.get("/purchasing/needs", headers=tech).json() if n["part_id"] == TIRE)
+    assert float(need["on_order"]) == 2 and float(need["requested"]) == 0
 
-
-def test_sarf_kismi_teslim_alma(client, manager, tech):
-    r = client.post("/purchase-orders", headers=tech, json={"supplier_id": SUPPLIER_OIL, "lines": [{"part_id": FILTER, "qty": 10, "unit_cost": 84}]})
-    po = r.json()["id"]
-    client.post(f"/purchase-orders/{po}/order", headers=manager, json={})
-    line = client.get(f"/purchase-orders/{po}", headers=tech).json()["lines"][0]["id"]
-    before = stock_qty(client, tech, FILTER)
-
-    r = client.post(f"/purchase-orders/{po}/receive", headers=tech, json={"site_id": SOMA, "ref": "IRS-9001", "lines": [{"line_id": line, "qty": 6}]})
-    assert r.status_code == 200 and r.json()["status"] == "partial"
-    assert stock_qty(client, tech, FILTER) == before + 6
+    # Kısmi teslim: 3 filtre → stok defterine sipariş numarasıyla girer
+    before = float(stock_row(client, tech, FILTER)["qty"])
+    r = client.post(f"/purchasing/orders/{oid}/receive", headers=tech,
+                    json={"ref": "IRS-9", "lines": [{"line_id": filter_line["id"], "qty": 3}]})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "partial"
+    assert float(next(ln for ln in r.json()["lines"] if ln["id"] == filter_line["id"])["received_qty"]) == 3
+    assert float(stock_row(client, tech, FILTER)["qty"]) == before + 3
     mv = client.get(f"/stock/{FILTER}/movements", headers=tech).json()[0]
-    assert mv["kind"] == "in" and mv["ref"] == "IRS-9001" and float(mv["unit_cost"]) == 84
-    r = client.post(f"/purchase-orders/{po}/receive", headers=tech, json={"site_id": SOMA, "lines": [{"line_id": line, "qty": 5}]})
-    assert r.status_code == 422 and "en fazla 4" in r.json()["detail"]
-    assert client.post(f"/purchase-orders/{po}/cancel", headers=manager).status_code == 409  # kısmen teslim alındı
-    r = client.post(f"/purchase-orders/{po}/receive", headers=tech, json={"site_id": SOMA, "lines": [{"line_id": line, "qty": 4}]})
-    assert r.json()["status"] == "received"
-    assert client.get(f"/purchase-orders/{po}", headers=tech).json()["received_at"] is not None
+    assert mv["kind"] == "in" and float(mv["qty"]) == 3 and float(mv["unit_cost"]) == 83 and mv["ref"] == f"SA-{YEAR}-0002 / IRS-9"
+    assert mv["site_name"] == "Soma açık ocak"
+    r = client.post(f"/purchasing/orders/{oid}/receive", headers=tech, json={"lines": [{"line_id": filter_line["id"], "qty": 3}]})
+    assert r.status_code == 422 and "kalan 2 adet" in r.json()["detail"]
+
+    # Seri numaralı lastik: her adet için satır gerekir, parça kalemi olarak stoğa girer
+    r = client.post(f"/purchasing/orders/{oid}/receive", headers=tech, json={"lines": [{"line_id": tire_line["id"], "qty": 2}]})
+    assert r.status_code == 422 and "her adet için" in r.json()["detail"]
+    r = client.post(f"/purchasing/orders/{oid}/receive", headers=tech, json={
+        "lines": [{"line_id": tire_line["id"], "qty": 2, "serials": [{"serial_no": "MX29-9001"}, {"serial_no": "MX29-9002", "qr_code": "ST-P-TEST9002"}]}]})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "partial"  # 2 filtre hâlâ bekliyor
+    receipt = next(x for x in r.json()["receipts"] if x["line_id"] == tire_line["id"])
+    assert {s["serial_no"] for s in receipt["serials"]} == {"MX29-9001", "MX29-9002"}
+    new = [p for p in client.get("/parts", headers=tech, params={"q": "MX29-900"}).json() if p["serial_no"] in ("MX29-9001", "MX29-9002")]
+    assert len(new) == 2 and all(p["status"] == "in_stock" for p in new)
+    detail = client.get(f"/parts/{new[0]['id']}", headers=tech).json()
+    assert float(detail["cost_total"]) == 9500 and any(e["event_type"] == "received" for e in client.get(f"/parts/{new[0]['id']}/events", headers=tech).json())
+    assert float(stock_row(client, tech, TIRE)["qty"]) == 3
+
+    # Kısmi teslimat iptal edilemez; kalanı kapatılır
+    r = client.post(f"/purchasing/orders/{oid}/status", headers=manager, json={"status": "cancelled"})
+    assert r.status_code == 422
+    r = client.post(f"/purchasing/orders/{oid}/status", headers=manager, json={"status": "received"})
+    assert r.status_code == 200 and r.json()["status"] == "received" and r.json()["closed_at"]
+    r = client.post(f"/purchasing/orders/{oid}/receive", headers=tech, json={"lines": [{"line_id": filter_line["id"], "qty": 1}]})
+    assert r.status_code == 422 and "teslim alınabilir durumda değil" in r.json()["detail"]
+    assert client.patch(f"/purchasing/orders/{oid}", headers=tech, json={"notes": "x"}).status_code == 422
+    assert not any(x["id"] == oid for x in client.get("/purchasing/orders", headers=tech, params={"open_only": True}).json())
 
 
-def test_seri_numarali_teslim_alma_ve_gecikme_bildirimi(client, manager, tech):
-    titles = [i["title"] for i in client.get("/notifications", headers=manager).json()["items"] if i["kind"] == "po_late"]
-    assert len(titles) == 1 and "teslimatı 5 gün gecikti" in titles[0]
-    line = client.get(f"/purchase-orders/{PO_TIRES}", headers=tech).json()["lines"][0]["id"]
-
-    r = client.post(f"/purchase-orders/{PO_TIRES}/receive", headers=tech,
-                    json={"site_id": None, "lines": [{"line_id": line, "qty": 3, "serials": ["N-1", "N-2"]}]})
-    assert r.status_code == 422 and "3 seri no girin (girilen 2)" in r.json()["detail"]
-    # Var olan seri no: hiçbir şey yazılmaz
-    r = client.post(f"/purchase-orders/{PO_TIRES}/receive", headers=tech,
-                    json={"lines": [{"line_id": line, "qty": 3, "serials": ["N-1", "N-2", "BS18-2290"]}]})
-    assert r.status_code == 409
-    assert client.get(f"/purchase-orders/{PO_TIRES}", headers=tech).json()["status"] == "ordered"
-
-    r = client.post(f"/purchase-orders/{PO_TIRES}/receive", headers=tech,
-                    json={"site_id": "21111111-0000-0000-0000-000000000001", "lines": [{"line_id": line, "qty": 3, "serials": ["BS18-3001", "BS18-3002", "BS18-3003"]}]})
-    assert r.status_code == 200 and r.json()["status"] == "received" and len(r.json()["part_ids"]) == 3
-    p = client.get(f"/parts/{part_id(client, tech, 'BS18-3002')}", headers=tech).json()
-    assert p["status"] == "in_stock" and float(p["cost_total"]) == 3150
-    assert "teslim alındı" in client.get(f"/parts/{p['id']}/events", headers=tech).json()[0]["notes"]
-    assert not [i for i in client.get("/notifications", headers=manager).json()["items"] if i["kind"] == "po_late"]
-    # Teslim alınmış belge tekrar teslim alınamaz
-    assert client.post(f"/purchase-orders/{PO_TIRES}/receive", headers=tech, json={"lines": [{"line_id": line, "qty": 1}]}).status_code == 409
-
-
-def test_tedarikci_ve_izolasyon(client, manager, tech, other):
-    assert client.post("/suppliers", headers=tech, json={"name": "Yetkisiz"}).status_code == 403
-    r = client.post("/suppliers", headers=manager, json={"name": "Karadeniz Akü", "phone": "+90 462 000 00 00"})
+def test_iptal_ve_izolasyon(client, manager, tech, other):
+    r = client.post("/purchasing/orders", headers=tech, json={"lines": [{"part_id": SEAL, "qty": 1}]})
     assert r.status_code == 201
-    assert {s["name"] for s in client.get("/suppliers", headers=manager).json()} >= {"Karadeniz Akü", "Anadolu OTR Lastik Ltd."}
-    assert client.get("/suppliers", headers=other).json() == []
-    assert client.get("/purchase-orders", headers=other).json() == []
-    assert client.get(f"/purchase-orders/{PO_TIRES}", headers=other).status_code == 404
-    r = client.post("/purchase-orders", headers=other, json={"supplier_id": SUPPLIER_OIL, "lines": [{"part_id": FILTER, "qty": 1}]})
-    assert r.status_code == 404  # başka firmanın tedarikçisi ve kalemi
+    oid = r.json()["id"]
+    assert client.get(f"/purchasing/orders/{oid}", headers=other).status_code == 404
+    assert client.patch(f"/purchasing/orders/{oid}", headers=other, json={"notes": "x"}).status_code == 404
+    assert client.post(f"/purchasing/orders/{oid}/status", headers=other, json={"status": "cancelled"}).status_code == 404
+    assert client.get("/purchasing/orders", headers=other).json() == []
+    assert client.get("/purchasing/suppliers", headers=other).json() == []
+    # Başka firmanın tedarikçisi / deposu kullanılamaz
+    assert client.post("/purchasing/orders", headers=other, json={"supplier_id": VOLVO, "lines": [{"part_id": SEAL, "qty": 1}]}).status_code == 404
+    r = client.post(f"/purchasing/orders/{oid}/status", headers=manager, json={"status": "cancelled"})
+    assert r.status_code == 200 and r.json()["status"] == "cancelled"
+    assert client.post(f"/purchasing/orders/{oid}/status", headers=manager, json={"status": "ordered"}).status_code == 422
+    # Seri numaralı kalem tam adet; sipariş ver sonra 1,5 adet teslim denemesi
+    r = client.post("/purchasing/orders", headers=manager, json={"supplier_id": VOLVO, "lines": [{"part_id": TIRE, "qty": 2}]})
+    oid2 = r.json()["id"]
+    client.post(f"/purchasing/orders/{oid2}/status", headers=manager, json={"status": "ordered"})
+    line = r.json()["lines"][0]["id"]
+    r = client.post(f"/purchasing/orders/{oid2}/receive", headers=tech, json={"lines": [{"line_id": line, "qty": 1.5}]})
+    assert r.status_code == 422 and "tam adet" in r.json()["detail"]
+    assert client.post(f"/purchasing/orders/{oid2}/status", headers=manager, json={"status": "cancelled"}).status_code == 200
+
+
+def test_geciken_siparis_bildirimi(client, manager):
+    yesterday = str(date.today() - timedelta(days=1))
+    r = client.post("/purchasing/orders", headers=manager,
+                    json={"supplier_id": VOLVO, "expected_at": yesterday, "lines": [{"part_id": SEAL, "qty": 2}]})
+    oid, number = r.json()["id"], r.json()["number"]
+    assert client.post(f"/purchasing/orders/{oid}/status", headers=manager, json={"status": "ordered"}).status_code == 200
+    listed = next(x for x in client.get("/purchasing/orders", headers=manager).json() if x["id"] == oid)
+    assert listed["late"] is True
+    late = [n for n in client.get("/notifications", headers=manager).json()["items"] if n["kind"] == "po_late"]
+    assert len(late) == 1 and late[0]["title"] == f"{number} teslimatı gecikti" and "1 gün gecikme" in late[0]["body"]
+    assert late[0]["link"] == {"type": "order", "id": oid}
+    client.post(f"/purchasing/orders/{oid}/status", headers=manager, json={"status": "cancelled"})
+    assert not [n for n in client.get("/notifications", headers=manager).json()["items"] if n["kind"] == "po_late"]
+
+
+def test_denetim_kaydi(client, manager):
+    rows = [r for r in client.get("/audit", headers=manager, params={"limit": 500}).json() if r["entity_type"] == "purchasing"]
+    actions = {r["action"] for r in rows}
+    assert {"create", "update", "status", "receive"} <= actions
+    rec = next(r for r in rows if r["action"] == "receive" and r["status"] == 200 and r["detail"]["ref"] == "IRS-9")
+    assert rec["detail"]["number"] == f"SA-{YEAR}-0002" and rec["detail"]["received"][0]["qty"] == "3"
+    assert any(r["action"] == "status" and r["detail"].get("status") == "ordered" for r in rows)

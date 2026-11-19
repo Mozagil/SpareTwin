@@ -51,10 +51,6 @@ erDiagram
 | `part_events` | Yaşam döngüsü defteri | Append-only. `part_hours` olay anındaki parça saati |
 | `inspections` | Saha kontrolü | `qc_flags` kalite kapısı sonuçları |
 | `measurements` | Ölçüm | Esnek: `metric` + `value` + `unit` + `source` |
-| `suppliers`, `purchase_orders`, `purchase_order_lines` | Tedarikçi ve satınalma belgeleri | Durum: talep → sipariş → kısmen / tam teslim alındı (veya iptal). Yoldaki miktar `v_on_order` |
-| `maintenance_plans`, `maintenance_records` | Periyodik bakım planı ve yapılan bakımlar | Durum `v_maintenance_due`: gecikmiş / yaklaşan / güncel |
-| `downtime_events` | Arıza ve duruş | Makinede aynı anda tek açık duruş |
-| `meter_readings` | Motor saati geçmişi | Dönemlik çalışma saati ve saat başı maliyet buradan |
 | `stock_movements` | Sarf malzemesi hareket defteri (giriş, çıkış, sayım, transfer) | Append-only; stok seviyesi `v_stock_levels` / `v_stock_totals` ile hareketlerden hesaplanır |
 | `notification_reads` | Kullanıcının okuduğu bildirim anahtarları | Bildirimler saklanmaz, her istekte güncel veriden üretilir |
 | `attachments` | Görsel, fotoğraf, doküman | `kind = 'image'`: katalog kalemi / makine modeli / makine görseli (firma başına bir tane). `kind = 'photo'`: inspeksiyon fotoğrafı, parça+açı başına bir tane. Dosya diskte veya S3'te |

@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactElement, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
-import { useCategoryDefs, useAssetModels, useCatalogParts, useCreate, useSites, useTemplates } from "../api/hooks";
-import type { Role } from "../api/types";
+import { useAssetModels, useCatalogParts, useCategories, useCreate, useSetModelTemplate, useSites, useTemplates } from "../api/hooks";
+import type { AssetModel, Role } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { ErrorNote, Field, Panel } from "../components/ui";
 import { CategoriesPanel } from "./CategoriesPanel";
@@ -12,8 +12,6 @@ import { TransferPanel } from "./TransferPanel";
 import { CATEGORY_LABEL, LAYOUT_LABEL } from "../lib/format";
 
 const nOrNull = (v: string) => (v.trim() === "" ? null : Number(v));
-// Seri numarasıyla tek tek izlenen yerleşik kategoriler; firmaya özel olanlar API'den gelir
-const SERIALIZED_BUILTIN = new Set(["tire", "rim", "hyd_cylinder", "hyd_pump", "battery"]);
 const sOrNull = (v: string) => (v.trim() === "" ? null : v.trim());
 
 function Success({ children }: { children: ReactNode }) {
@@ -141,8 +139,6 @@ function CatalogForm() {
   // Seri numarasıyla tek tek izlenen tipler; diğerleri (filtre, yağ, keçe) miktarla izlenir
   const SERIALIZED = new Set((categories.data ?? []).filter((c) => c.is_serialized).map((c) => c.code));
   const [cat, setCat] = useState("tire");
-  const cats = useCategoryDefs();
-  const SERIALIZED = new Set([...SERIALIZED_BUILTIN, ...(cats.data ?? []).filter((c) => c.is_serialized).map((c) => c.code)]);
   const [f, setF] = useState({ name: "", manufacturer: "", part_no: "", list_cost: "", min_stock: "0", life: "", unit: "adet" });
   const [t, setT] = useState({ size: "", construction: "radial", tra_code: "", otd_mm: "", scrap_tread_mm: "" });
   const [r, setR] = useState({ size: "", pieces: "", ndt_interval_hours: "" });
@@ -171,7 +167,7 @@ function CatalogForm() {
       <div className="form-row">
         <Field label="Tür" hint="Listede yoksa “Parça tipleri” sekmesinden ekleyin">
           <select value={cat} onChange={(e) => setCat(e.target.value)}>
-            {(cats.data ?? Object.entries(CATEGORY_LABEL).map(([code, name]) => ({ code, name }))).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            {categories.data?.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select>
         </Field>
         <Field label="Ad"><input value={f.name} onChange={up("name")} placeholder={cat === "tire" ? "29.5R25 L-4 radyal" : ""} required /></Field>

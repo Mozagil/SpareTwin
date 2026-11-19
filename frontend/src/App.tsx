@@ -17,12 +17,6 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { RimsPage } from "./pages/RimsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { StockPage } from "./pages/StockPage";
-import { PurchasingPage } from "./pages/PurchasingPage";
-import { PurchaseOrderPage } from "./pages/PurchaseOrderPage";
-import { MaintenancePage } from "./pages/MaintenancePage";
-import { CostsPage } from "./pages/CostsPage";
-import { SettingsPage } from "./pages/SettingsPage";
-import { ModuleGate } from "./components/ModuleGate";
 
 export function App() {
   const { status, membership } = useAuth();
@@ -39,13 +33,11 @@ export function App() {
           <Route path="parcalar" element={<PartsPage />} />
           <Route path="kayit" element={<RegisterPage />} />
           <Route path="etiketler" element={<LabelsPage />} />
-          <Route path="jantlar" element={<ModuleGate module="tireiq"><RimsPage /></ModuleGate>} />
-          <Route path="stok" element={<ModuleGate module="parts"><StockPage /></ModuleGate>} />
-          <Route path="satinalma" element={<ModuleGate module="parts"><PurchasingPage /></ModuleGate>} />
-          <Route path="satinalma/:id" element={<ModuleGate module="parts"><PurchaseOrderPage /></ModuleGate>} />
-          <Route path="bakim" element={<ModuleGate module="parts"><MaintenancePage /></ModuleGate>} />
-          <Route path="maliyet" element={<ModuleGate module="parts"><CostsPage /></ModuleGate>} />
-          <Route path="ayarlar" element={<SettingsPage />} />
+          <Route path="jantlar" element={<RimsPage />} />
+          <Route path="stok" element={<StockPage />} />
+          <Route path="uretim" element={<ProductionPage />} />
+          <Route path="satinalma" element={<PurchasingPage />} />
+          <Route path="bakim" element={<MaintenancePage />} />
           <Route path="kontrol" element={<InspectionStartPage />} />
           <Route path="kontrol/:id" element={<InspectionPage />} />
           <Route path="ayarlar" element={<SettingsPage />} />

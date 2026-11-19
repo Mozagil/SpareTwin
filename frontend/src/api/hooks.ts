@@ -31,20 +31,7 @@ import type {
   QcFlag,
   RemovalReasons,
   RimRow,
-  CategoryDef,
-  Costs,
-  Downtime,
-  DowntimeCategory,
-  MaintenancePlan,
-  MaintenanceRecord,
-  PoStatus,
-  TemplateDef,
-  TenantSettings,
-  PoSummary,
-  PurchaseOrder,
   StockMovement,
-  Suggestion,
-  Supplier,
   StockRow,
   Sheet,
   PartDetail,
@@ -526,106 +513,145 @@ export function useStockActions() {
   };
 }
 
-// ---------- Satınalma ----------
-export const useSuppliers = () => useQuery({ queryKey: ["suppliers"], queryFn: () => api<Supplier[]>("/suppliers") });
-export const useSuggestions = () =>
-  useQuery({ queryKey: ["po", "suggestions"], queryFn: () => api<Suggestion[]>("/purchasing/suggestions") });
-export const useOrders = (status?: PoStatus) =>
-  useQuery({ queryKey: ["po", "list", status ?? "all"], queryFn: () => api<PoSummary[]>("/purchase-orders", { query: { status } }) });
-export const useOrder = (id: string | undefined) =>
-  useQuery({ queryKey: ["po", "one", id], queryFn: () => api<PurchaseOrder>(`/purchase-orders/${id}`), enabled: !!id });
+// ---------- Satınalma (Faz 2) ----------
+export const useSuppliers = (includeInactive = false) =>
+  useQuery({ queryKey: ["suppliers", includeInactive],
+             queryFn: () => api<Supplier[]>("/purchasing/suppliers", { query: { include_inactive: includeInactive || undefined } }) });
 
-export function usePurchasing() {
+/** Anahtar "orders" ile başlar: sipariş ya da teslim alma değişince kendiliğinden tazelenir. */
+export const useSupplierComparison = (months = 12) =>
+  useQuery({ queryKey: ["orders", "compare", months],
+             queryFn: () => api<SupplierComparison>("/purchasing/supplier-comparison", { query: { months } }) });
+export const useNeeds = () => useQuery({ queryKey: ["needs"], queryFn: () => api<PurchaseNeed[]>("/purchasing/needs") });
+
+export const usePurchaseOrders = (f: { status?: string; open_only?: boolean; q?: string }) =>
+  useQuery({ queryKey: ["orders", "list", f],
+             queryFn: () => api<PurchaseOrder[]>("/purchasing/orders", { query: { ...f, open_only: f.open_only || undefined } }) });
+
+export const usePurchaseOrder = (id: string | undefined) =>
+  useQuery({ queryKey: ["orders", "one", id], queryFn: () => api<PurchaseOrderDetail>(`/purchasing/orders/${id}`), enabled: !!id });
+
+export function usePurchaseActions() {
   const qc = useQueryClient();
-  const refresh = () => Promise.all(["po", "stock", "parts", "catalog-parts", "notifications", "suppliers"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
-  // Dönüş tipini koruyan yardımcı (talep oluştur → {id, number}, teslim al → {status, part_ids})
-  const m = <T, R>(fn: (v: T) => Promise<R>) => useMutation<R, Error, T>({ mutationFn: fn, onSuccess: refresh });
+  const refresh = () => Promise.all(
+    ["orders", "needs", "suppliers", "stock", "parts", "catalog-parts", "notifications", "audit"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
   return {
-    create: m((b: { supplier_id: string | null; notes?: string | null; lines: { part_id: string; qty: number; unit_cost?: number | null }[] }) =>
-      api<{ id: string; number: string }>("/purchase-orders", { method: "POST", body: b })),
-    patch: m((v: { id: string; supplier_id?: string | null; expected_date?: string | null; notes?: string | null }) => {
-      const { id, ...body } = v;
-      return api(`/purchase-orders/${id}`, { method: "PATCH", body });
+    createOrder: useMutation({
+      mutationFn: (b: PurchaseOrderIn) => api<PurchaseOrderDetail>("/purchasing/orders", { method: "POST", body: b }),
+      onSuccess: refresh,
     }),
-    addLine: m((v: { id: string; part_id: string; qty: number; unit_cost?: number | null }) => {
-      const { id, ...body } = v;
-      return api(`/purchase-orders/${id}/lines`, { method: "POST", body });
+    updateOrder: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: Partial<PurchaseOrderIn> }) =>
+        api<PurchaseOrderDetail>(`/purchasing/orders/${id}`, { method: "PATCH", body }),
+      onSuccess: refresh,
     }),
-    patchLine: m((v: { id: string; line: string; qty?: number; unit_cost?: number | null }) => {
-      const { id, line, ...body } = v;
-      return api(`/purchase-orders/${id}/lines/${line}`, { method: "PATCH", body });
+    setStatus: useMutation({
+      mutationFn: ({ id, status }: { id: string; status: "ordered" | "cancelled" | "received" }) =>
+        api<PurchaseOrderDetail>(`/purchasing/orders/${id}/status`, { method: "POST", body: { status } }),
+      onSuccess: refresh,
     }),
-    deleteLine: m((v: { id: string; line: string }) => api(`/purchase-orders/${v.id}/lines/${v.line}`, { method: "DELETE" })),
-    place: m((v: { id: string; expected_date?: string | null }) =>
-      api(`/purchase-orders/${v.id}/order`, { method: "POST", body: { expected_date: v.expected_date || null } })),
-    cancel: m((id: string) => api(`/purchase-orders/${id}/cancel`, { method: "POST" })),
-    receive: m((v: { id: string; site_id: string | null; ref?: string | null; lines: { line_id: string; qty: number; serials: string[] }[] }) => {
-      const { id, ...body } = v;
-      return api<{ status: string; part_ids: string[] }>(`/purchase-orders/${id}/receive`, { method: "POST", body });
+    receive: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: ReceiveIn }) =>
+        api<PurchaseOrderDetail>(`/purchasing/orders/${id}/receive`, { method: "POST", body }),
+      onSuccess: refresh,
     }),
-    createSupplier: m((b: { name: string; contact?: string | null; phone?: string | null; email?: string | null }) =>
-      api<Supplier>("/suppliers", { method: "POST", body: b })),
+    createSupplier: useMutation({
+      mutationFn: (b: SupplierIn) => api<Supplier>("/purchasing/suppliers", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
+    updateSupplier: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: SupplierIn }) => api<Supplier>(`/purchasing/suppliers/${id}`, { method: "PATCH", body }),
+      onSuccess: refresh,
+    }),
   };
 }
 
-// ---------- Bakım ve duruş ----------
-export const usePlans = (assetId?: string) =>
-  useQuery({ queryKey: ["ops", "plans", assetId ?? "all"], queryFn: () => api<MaintenancePlan[]>("/maintenance/plans", { query: { asset_id: assetId } }) });
-export const useRecords = (assetId?: string) =>
-  useQuery({ queryKey: ["ops", "records", assetId ?? "all"], queryFn: () => api<MaintenanceRecord[]>("/maintenance/records", { query: { asset_id: assetId } }) });
-export const useDowntime = (assetId?: string) =>
-  useQuery({ queryKey: ["ops", "downtime", assetId ?? "all"], queryFn: () => api<Downtime[]>("/downtime", { query: { asset_id: assetId } }) });
+// ---------- Bakım (Faz 2) ----------
+export const useMaintenancePlans = (f: { include_inactive?: boolean; asset_id?: string } = {}) =>
+  useQuery({ queryKey: ["maintenance", "plans", f],
+             queryFn: () => api<MaintenancePlan[]>("/maintenance/plans", { query: { ...f, include_inactive: f.include_inactive || undefined } }) });
 
-export function useOps() {
+export const useMaintenanceDue = (f: { asset_id?: string; state?: string } = {}) =>
+  useQuery({ queryKey: ["maintenance", "due", f], queryFn: () => api<MaintenanceDue[]>("/maintenance/due", { query: { ...f } }) });
+
+export const useMaintenanceSummary = () =>
+  useQuery({ queryKey: ["maintenance", "summary"], queryFn: () => api<AssetMaintenance[]>("/maintenance/summary") });
+
+// "maintenance" anahtarının altında: iş emri, stok ya da ayar değişince rapor da tazelenir
+export const useTco = (f: { months: number; site_id?: string }) =>
+  useQuery({ queryKey: ["maintenance", "tco", f], queryFn: () => api<TcoReport>("/reports/tco", { query: { ...f } }) });
+
+/** Makineye özel duruş saat maliyeti; null firma oranına döndürür. */
+export function useSetDowntimeRate() {
   const qc = useQueryClient();
-  const refresh = () => Promise.all(["ops", "assets", "asset", "stock", "notifications", "costs"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
-  const m = <T, R>(fn: (v: T) => Promise<R>) => useMutation<R, Error, T>({ mutationFn: fn, onSuccess: refresh });
+  return useMutation({
+    mutationFn: (v: { assetId: string; rate: number | null }) =>
+      api(`/assets/${v.assetId}`, { method: "PATCH", body: { downtime_cost_per_hour: v.rate } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance", "tco"] }),
+  });
+}
+
+export const useWorkOrders = (f: { status?: string; kind?: string; asset_id?: string; open_only?: boolean; q?: string }) =>
+  useQuery({ queryKey: ["work-orders", "list", f],
+             queryFn: () => api<WorkOrder[]>("/maintenance/work-orders", { query: { ...f, open_only: f.open_only || undefined } }) });
+
+export const useWorkOrder = (id: string | undefined) =>
+  useQuery({ queryKey: ["work-orders", "one", id], queryFn: () => api<WorkOrderDetail>(`/maintenance/work-orders/${id}`), enabled: !!id });
+
+export function useMaintenanceActions() {
+  const qc = useQueryClient();
+  const refresh = () => Promise.all(
+    ["maintenance", "work-orders", "assets", "asset", "stock", "notifications", "audit"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
   return {
-    createPlan: m((b: { asset_id: string; name: string; interval_hours: number | null; interval_days: number | null;
-                         last_done_hours?: number | null; materials: { part_id: string; qty: number }[]; notes?: string | null }) =>
-      api("/maintenance/plans", { method: "POST", body: b })),
-    complete: m((v: { id: string; asset_hours?: number | null; labor_cost?: number | null; notes?: string | null;
-                      site_id?: string | null; consume_materials: boolean }) => {
-      const { id, ...body } = v;
-      return api(`/maintenance/plans/${id}/complete`, { method: "POST", body });
+    createPlan: useMutation({
+      mutationFn: (b: MaintenancePlanIn) => api<MaintenancePlan>("/maintenance/plans", { method: "POST", body: b }),
+      onSuccess: refresh,
     }),
-    setActive: m((v: { id: string; active: boolean }) => api(`/maintenance/plans/${v.id}`, { method: "PATCH", body: { active: v.active } })),
-    startDowntime: m((b: { asset_id: string; category: DowntimeCategory; description?: string | null }) =>
-      api("/downtime", { method: "POST", body: b })),
-    endDowntime: m((v: { id: string; cost?: number | null }) => api(`/downtime/${v.id}/end`, { method: "POST", body: { cost: v.cost ?? null } })),
+    updatePlan: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: MaintenancePlanIn }) => api<MaintenancePlan>(`/maintenance/plans/${id}`, { method: "PATCH", body }),
+      onSuccess: refresh,
+    }),
+    createWorkOrder: useMutation({
+      mutationFn: (b: WorkOrderIn) => api<WorkOrderDetail>("/maintenance/work-orders", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
+    updateWorkOrder: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: WorkOrderPatch }) => api<WorkOrderDetail>(`/maintenance/work-orders/${id}`, { method: "PATCH", body }),
+      onSuccess: refresh,
+    }),
+    setWorkOrderStatus: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: WoStatusIn }) => api<WorkOrderDetail>(`/maintenance/work-orders/${id}/status`, { method: "POST", body }),
+      onSuccess: refresh,
+    }),
   };
 }
 
-// ---------- Maliyet ----------
-export const useCosts = (days: number) =>
-  useQuery({ queryKey: ["costs", days], queryFn: () => api<Costs>("/costs/assets", { query: { days } }) });
+// ---------- Makine devri ----------
+export const useTransfers = () => useQuery({ queryKey: ["transfers"], queryFn: () => api<TransferRow[]>("/transfers") });
 
-// ---------- Ayarlar ----------
-export const useTenantSettings = () =>
-  useQuery({ queryKey: ["settings"], queryFn: () => api<TenantSettings>("/settings"), staleTime: 5 * 60_000 });
-
-/** Firmanın açık modülleri. Yüklenene kadar hepsi açık sayılır (menü titremesin). */
-export function useModules() {
-  const s = useTenantSettings();
-  return s.data?.modules ?? { tireiq: true, parts: true, erp: false };
-}
-export const useCategoryDefs = () => useQuery({ queryKey: ["settings", "categories"], queryFn: () => api<CategoryDef[]>("/settings/categories") });
-export const useTemplateDefs = () => useQuery({ queryKey: ["settings", "templates"], queryFn: () => api<TemplateDef[]>("/settings/templates") });
-
-export function useSettingsActions() {
+export function useTransferActions() {
   const qc = useQueryClient();
-  const refresh = () => Promise.all(["settings", "categories", "templates", "notifications", "po"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
-  const m = <T, R>(fn: (v: T) => Promise<R>) => useMutation<R, Error, T>({ mutationFn: fn, onSuccess: refresh });
+  // Devralınan makineyle birlikte model, şablon, parça tipi ve katalog kalemi de gelebilir
+  const refresh = () => Promise.all(
+    ["transfers", "assets", "asset", "parts", "part", "catalog-parts", "asset-models", "templates", "categories", "rims", "notifications", "audit"]
+      .map((k) => qc.invalidateQueries({ queryKey: [k] })));
   return {
-    save: m((b: { inspection_interval_days: number; purchase_horizon_hours: number; modules: { tireiq: boolean; parts: boolean } }) =>
-      api("/settings", { method: "PUT", body: b })),
-    addCategory: m((b: { code: string; name: string; is_serialized: boolean; measurement_profile: object[]; required_photo_angles: string[] }) =>
-      api("/settings/categories", { method: "POST", body: b })),
-    copyTemplate: m((b: { name: string; copy_from: string }) => api("/settings/templates", { method: "POST", body: b })),
-    addPosition: m((v: { id: string; code: string; label: string; category_code: string; axle: number | null }) => {
-      const { id, ...body } = v;
-      return api(`/settings/templates/${id}/positions`, { method: "POST", body });
+    create: useMutation({
+      mutationFn: (v: { assetId: string; note: string | null }) =>
+        api<PendingTransfer>(`/assets/${v.assetId}/transfer`, { method: "POST", body: { note: v.note } }),
+      onSuccess: refresh,
     }),
-    deletePosition: m((v: { id: string; code: string }) => api(`/settings/templates/${v.id}/positions/${encodeURIComponent(v.code)}`, { method: "DELETE" })),
+    cancel: useMutation({
+      mutationFn: (id: string) => api(`/transfers/${id}/cancel`, { method: "POST" }),
+      onSuccess: refresh,
+    }),
+    preview: useMutation({
+      mutationFn: (code: string) => api<TransferPreview>("/transfers/preview", { query: { code } }),
+    }),
+    accept: useMutation({
+      mutationFn: (b: { code: string; asset_code: string | null; site_id: string | null }) =>
+        api<TransferAccepted>("/transfers/accept", { method: "POST", body: b }),
+      onSuccess: refresh,
+    }),
   };
 }

@@ -60,8 +60,6 @@ export interface AssetSummary {
   worst_condition_pct: number | null;
   last_inspection_at: string | null;
   unknown_parts: number;
-  down_since: string | null;
-  maintenance_overdue: number;
   image: Img | null;
 }
 
@@ -707,11 +705,11 @@ export interface RimRow {
 
 export interface Notification {
   key: string;
-  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing" | "po_late" | "maintenance_due" | "downtime_open";
+  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing" | "purchase_need" | "po_late" | "maintenance_due" | "asset_down";
   severity: "critical" | "watch";
   title: string;
   body: string;
-  link: { type: "part" | "rim" | "stock" | "asset" | "po" | "maintenance"; id: string };
+  link: { type: "part" | "rim" | "stock" | "asset" | "purchasing" | "order" | "maintenance" | "work_order"; id: string };
   at: string | null;
   read: boolean;
   /** Ekip bazlı durum: üstlenildi / gizlendi / yok. Durum değişince kendiliğinden düşer. */
@@ -800,70 +798,327 @@ export interface StockMovement {
   performed_by_name: string | null;
 }
 
-// ---------- Satınalma ----------
+// ---------- Satınalma (Faz 2) ----------
 export type PoStatus = "draft" | "ordered" | "partial" | "received" | "cancelled";
 
 export interface Supplier {
-  id: string; name: string; contact: string | null; phone: string | null; email: string | null;
-  notes: string | null; active: boolean; orders: number;
+  id: string;
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  tax_no: string | null;
+  address: string | null;
+  notes: string | null;
+  lead_time_days: number | null;
+  is_active: boolean;
+  created_at: string;
+  open_orders?: number;
 }
 
-export interface Suggestion {
-  part_id: string; name: string; unit: Unit; category_code: string; is_serialized: boolean;
-  suggested_qty: number; qty: number; min_stock: number; on_order: number; upcoming: number;
-  reasons: string[]; unit_cost: number | null; supplier_id: string | null; supplier_name: string | null; urgent: boolean;
+export interface SupplierIn {
+  name: string;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  tax_no: string | null;
+  address: string | null;
+  notes: string | null;
+  lead_time_days: number | null;
+  is_active: boolean;
 }
 
-export interface PoSummary {
-  id: string; number: string; status: PoStatus; expected_date: string | null; created_at: string;
-  ordered_at: string | null; received_at: string | null; supplier_name: string | null; lines: number; total: number; late: boolean;
-}
-
-export interface PoLine {
-  id: string; part_id: string; part_name: string; part_no: string | null; unit: Unit; category_code: string;
-  is_serialized: boolean; qty: number; unit_cost: number | null; received_qty: number; remaining: number; note: string | null;
+export interface PurchaseNeed {
+  part_id: string;
+  name: string;
+  manufacturer: string | null;
+  part_no: string | null;
+  unit: Unit;
+  category_code: string;
+  is_serialized: boolean;
+  min_stock: number;
+  in_stock: number;
+  avg_cost: number | null;
+  /** Yaklaşan değişim sayısı (kritik ya da değişim ufku içinde) */
+  upcoming: number;
+  items: { id: string; asset_code: string; position: string; band: Band; condition_pct: number | null; hours_left: number | null }[] | null;
+  on_order: number;
+  requested: number;
+  /** Önerilen sipariş miktarı */
+  need: number;
 }
 
 export interface PurchaseOrder {
-  id: string; number: string; status: PoStatus; supplier_id: string | null; supplier_name: string | null;
-  expected_date: string | null; notes: string | null; created_at: string; ordered_at: string | null;
-  received_at: string | null; lines: PoLine[]; total: number; late: boolean;
+  id: string;
+  number: string;
+  status: PoStatus;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  site_id: string | null;
+  site_name: string | null;
+  expected_at: string | null;
+  notes: string | null;
+  ordered_at: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  requested_by_name: string | null;
+  ordered_by_name: string | null;
+  line_count: number;
+  total: number | null;
+  received_total: number | null;
+  summary: string | null;
+  late: boolean;
 }
 
-// ---------- Bakım, duruş, maliyet, ayarlar ----------
-export type DueStatus = "overdue" | "due_soon" | "ok" | "inactive";
+export interface PurchaseOrderLine {
+  id: number;
+  part_id: string;
+  name: string;
+  manufacturer: string | null;
+  part_no: string | null;
+  unit: Unit;
+  is_serialized: boolean;
+  category_code: string;
+  qty: number;
+  received_qty: number;
+  unit_cost: number | null;
+  asset_id: string | null;
+  asset_code: string | null;
+  notes: string | null;
+}
+
+export interface PurchaseReceipt {
+  id: number;
+  line_id: number;
+  name: string;
+  qty: number;
+  ref: string | null;
+  serials: { id: string; serial_no: string | null }[] | null;
+  received_at: string;
+  site_name: string | null;
+  received_by_name: string | null;
+}
+
+export interface PurchaseOrderDetail extends PurchaseOrder {
+  lines: PurchaseOrderLine[];
+  receipts: PurchaseReceipt[];
+}
+
+export interface PurchaseLineIn { part_id: string; qty: number; unit_cost: number | null; asset_id: string | null; notes: string | null }
+export interface PurchaseOrderIn {
+  supplier_id: string | null;
+  site_id: string | null;
+  expected_at: string | null;
+  notes: string | null;
+  lines: PurchaseLineIn[];
+}
+export interface ReceiveIn {
+  site_id: string | null;
+  ref: string | null;
+  lines: { line_id: number; qty: number; serials?: { serial_no: string | null; qr_code?: string | null }[] }[];
+}
+
+// ---------- Bakım (Faz 2) ----------
+export type WoKind = "planned" | "breakdown";
+export type WoStatus = "open" | "in_progress" | "done" | "cancelled";
+export type DueState = "overdue" | "due_soon" | "ok";
+export type ReasonCode = "hydraulic" | "electrical" | "engine" | "tire" | "transmission" | "structural" | "operator" | "other";
+
+export interface PlanPart { part_id: string; name: string; unit: Unit; qty: number; is_serialized: boolean }
+
 export interface MaintenancePlan {
-  id: string; asset_id: string; asset_code: string; name: string; interval_hours: number | null; interval_days: number | null;
-  last_done_hours: number | null; last_done_at: string | null; meter_hours: number; hours_left: number | null;
-  days_left: number | null; next_due_at: string | null; due_status: DueStatus; notes: string | null; active: boolean;
-  materials: { part_id: string; qty: number; name: string | null; unit: string | null }[];
+  id: string;
+  name: string;
+  asset_id: string | null;
+  asset_code: string | null;
+  model_id: string | null;
+  model_name: string | null;
+  interval_hours: number | null;
+  interval_days: number | null;
+  checklist: string[];
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  /** Planın kapsadığı (emekli olmayan) makine sayısı */
+  asset_count: number;
+  parts: PlanPart[];
 }
-export interface MaintenanceRecord {
-  id: string; asset_id: string; asset_code: string; plan_id: string | null; title: string; asset_hours: number | null;
-  labor_cost: number | null; notes: string | null; performed_at: string; performed_by_name: string | null;
+
+export interface MaintenancePlanIn {
+  name: string;
+  asset_id: string | null;
+  model_id: string | null;
+  interval_hours: number | null;
+  interval_days: number | null;
+  checklist: string[];
+  notes: string | null;
+  is_active: boolean;
+  parts: { part_id: string; qty: number }[];
 }
-export type DowntimeCategory = "breakdown" | "planned_maintenance" | "tire" | "waiting_parts" | "operational" | "other";
-export interface Downtime {
-  id: string; asset_id: string; asset_code: string; category: DowntimeCategory; description: string | null;
-  started_at: string; ended_at: string | null; cost: number | null; hours: number;
+
+export interface MaintenanceDue {
+  plan_id: string;
+  name: string;
+  interval_hours: number | null;
+  interval_days: number | null;
+  checklist: string[];
+  asset_id: string;
+  asset_code: string;
+  meter_hours: number;
+  asset_status: string;
+  site_id: string | null;
+  last_done_at: string | null;
+  last_done_hours: number | null;
+  last_done_number: string | null;
+  next_due_hours: number | null;
+  next_due_at: string | null;
+  hours_left: number | null;
+  days_left: number | null;
+  hours_per_day: number | null;
+  /** Saat bazlı bakım için günlük kullanımdan tahmini tarih; takvimde hedef tarih */
+  eta_at: string | null;
+  state: DueState;
+  open_work_order_id: string | null;
+  open_work_order_number: string | null;
+  open_work_order_status: WoStatus | null;
 }
-export interface CostRow {
-  id: string; code: string; manufacturer: string | null; model: string | null; meter_hours: number;
-  parts: number; parts_count: number; consumables: number; services: number; maintenance: number; maintenance_count: number;
-  downtime_cost: number; downtime_hours: number; hours_worked: number | null; total: number; cost_per_hour: number | null;
+
+export interface WorkOrder {
+  id: string;
+  number: string;
+  kind: WoKind;
+  status: WoStatus;
+  title: string;
+  asset_id: string;
+  asset_code: string;
+  asset_meter_hours: number;
+  plan_id: string | null;
+  plan_name: string | null;
+  due_at: string | null;
+  due_hours: number | null;
+  down_from: string | null;
+  down_to: string | null;
+  downtime_minutes: number | null;
+  reason_code: ReasonCode | null;
+  part_item_id: string | null;
+  part_serial_no: string | null;
+  part_name: string | null;
+  asset_hours_at_done: number | null;
+  labor_cost: number | null;
+  external_cost: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by_name: string | null;
+  assigned_to_name: string | null;
+  completed_by_name: string | null;
+  assigned_to: string | null;
+  description: string | null;
+  part_count: number;
+  parts_cost: number | null;
+  late: boolean;
 }
-export interface Costs {
-  since: string | null; days: number; rows: CostRow[];
-  totals: { parts: number; consumables: number; services: number; maintenance: number; downtime_cost: number;
-            total: number; hours_worked: number; downtime_hours: number; cost_per_hour: number | null };
+
+export interface WorkOrderPart {
+  id: number;
+  part_id: string;
+  name: string;
+  unit: Unit;
+  qty: number;
+  site_id: string | null;
+  site_name: string | null;
+  unit_cost: number | null;
+  in_stock: number;
 }
-export interface Modules { tireiq: boolean; parts: boolean; erp: boolean }
-export interface TenantSettings { inspection_interval_days: number; purchase_horizon_hours: number; can_edit: boolean; modules: Modules }
-export interface CategoryDef {
-  id: string; code: string; name: string; is_serialized: boolean; library: boolean; catalog_items: number;
-  measurement_profile: ProfileItem[]; required_photo_angles: string[];
+
+export interface WorkOrderDetail extends WorkOrder {
+  parts: WorkOrderPart[];
+  checklist: string[] | null;
 }
-export interface TemplateDef {
-  id: string; name: string; layout: string; library: boolean; models: number;
-  positions: { code: string; label: string; category_code: string; axle: number | null; on_schematic: boolean }[];
+
+export interface WoPartIn { part_id: string; qty: number; site_id: string | null }
+export interface WorkOrderIn {
+  asset_id: string;
+  kind: WoKind;
+  plan_id: string | null;
+  title: string | null;
+  description: string | null;
+  due_at: string | null;
+  due_hours: number | null;
+  down_from: string | null;
+  reason_code: ReasonCode | null;
+  part_item_id: string | null;
+  parts: WoPartIn[] | null;
+}
+export interface WorkOrderPatch {
+  title?: string;
+  description?: string | null;
+  due_at?: string | null;
+  due_hours?: number | null;
+  down_from?: string | null;
+  reason_code?: ReasonCode | null;
+  part_item_id?: string | null;
+  labor_cost?: number | null;
+  external_cost?: number | null;
+  parts?: WoPartIn[];
+}
+export interface WoStatusIn {
+  status: "in_progress" | "done" | "cancelled";
+  asset_hours?: number | null;
+  down_to?: string | null;
+  labor_cost?: number | null;
+  external_cost?: number | null;
+  notes?: string | null;
+}
+
+export interface AssetMaintenance {
+  asset_id: string;
+  asset_code: string;
+  asset_status: string;
+  planned_done: number;
+  breakdowns: number;
+  open_orders: number;
+  downtime_minutes: number;
+  cost_12m: number;
+  last_done_at: string | null;
+}
+
+// ---------- Maliyet raporu (TCO) ----------
+export interface TcoCosts {
+  parts_cost: number;
+  consumables_cost: number;
+  labor_cost: number;
+  external_cost: number;
+  downtime_cost: number;
+  total: number;
+}
+export interface TcoRow extends TcoCosts {
+  asset_id: string;
+  asset_code: string;
+  asset_status: string;
+  site_id: string | null;
+  site_name: string | null;
+  model_name: string | null;
+  downtime_minutes: number;
+  planned_done: number;
+  breakdowns: number;
+  hours_worked: number;
+  /** Saat kaydının başladığı an; dönem başından sonraysa saat başı maliyet eksik saate bölünmüştür */
+  hours_from: string | null;
+  cost_per_hour: number | null;
+  /** Geçerli duruş saat maliyeti: makineye özel oran, yoksa firma oranı */
+  downtime_rate: number;
+  downtime_rate_own: boolean;
+}
+export interface TcoReport {
+  months: number;
+  from: string;
+  to: string;
+  currency: string;
+  downtime_cost_per_hour: number;
+  totals: TcoCosts & { downtime_minutes: number; hours_worked: number; cost_per_hour: number | null };
+  assets: TcoRow[];
 }

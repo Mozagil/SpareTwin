@@ -177,34 +177,114 @@ Her önemli karar burada: ne seçildi, neden, neyi göze aldık. Bir karar deği
 
 ---
 
-## K-014 · Toplam sahip olma maliyeti yalnızca kayıtlardan; ilk kurulum sayılmaz
+## K-014 · TireIQ taslağı arşivlendi; üç parçası SpareTwin'e taşındı
 
-**Tarih:** 4 Kasım 2026 · **Durum:** Kabul
+**Tarih:** 9 Kasım 2026 · **Durum:** Kabul
 
-**Karar:** Maliyet ekranı tahmin içermez; yalnızca sistemdeki kayıtları toplar: dönemde makineye ilk kez takılan parçaların alış bedeli, makineye yapılan stok çıkışları, parça olaylarına girilen bedeller, bakım işçiliği ve duruş tamir bedelleri. Saat başı maliyet, aynı dönemde çalışılan motor saatine (motor saati geçmişi) bölünür. Rotasyon parça maliyetini tekrar saymaz. Excel ile ilk kurulumda içe aktarılan parçalar sayılmaz.
+**Karar:** Ayrı bir monorepo olarak başlanan ve commit atılmadan bırakılan TireIQ taslağı (FastAPI + SQLAlchemy + Next.js, yalnızca lastik) devam ettirilmez. Yol haritasına uyan üç parçası SpareTwin'e, bizim mimariyle (RLS, kurallar veritabanında, bildirimler güncel veriden) yeniden yazılarak alındı:
 
-**Neden:** Bir firma filosunu sisteme ilk aktardığında, zaten takılı olan yüzlerce lastik "bugün takıldı" görünür; bunları o dönemin harcaması saymak ilk ay raporunu tamamen yanıltırdı. Tahmin içermeyen bir hesap, yöneticinin her rakamı kaynağına kadar izleyebilmesini sağlar.
+1. **Firma başına uyarı eşikleri.** Koda gömülü %20 / %40 / %90 / 30 gün değerleri `tenants.settings->'thresholds'` içine taşındı; görünümler (`v_part_health`, `v_rim_compliance`) ve bildirimler firmanın ayarını okur, yoksa aynı varsayılanlar geçerli.
+2. **Uyarı yaşam döngüsü.** TireIQ'daki tekilleştirme / yükselme / kendiliğinden kapanma kuralları, bildirim anahtarının durumu da içermesi sayesinde tablo eklemeden karşılandı: ekip bazlı "üstlen" ve "gizle" durumu anahtara bağlıdır; durum kötüleşince anahtar değişir ve kayıt düşer, sorun geçince anahtar listeden çıkar ve kayıt temizlenir. Okundu bilgisi kişisel kalır.
+3. **Denetim kaydı.** Faz 3'ten öne çekildi. Uç noktalara dokunmadan HTTP ara katmanı yazar; uygulama rolünün tabloya yazma yetkisi yoktur, yalnızca yöneticiler okur.
 
-**Bilinen sınır:** Yakıt ve operatör maliyeti henüz yok. Makine dışındayken yapılan tamirler (lastik tamire gitti) parça olayına bağlıdır, makineye bağlanmaz.
+**Alınmayanlar:** Aşınma ölçeği (bizde zaten kullanılabilir derinlik üzerinden hesaplanıyor), `@tireiq/ui` design system paketi (kendi görsel dilimiz oturmuş), uygulama katmanında kiracı filtresi (bizde RLS veritabanında zorluyor).
 
----
+**Neden:** TireIQ lastiğe kilitli, SpareTwin genel parça modeli; iki kod tabanı taşımak iki kat bakım demek. Taslaktaki iyi fikirler kodla değil kuralla alındı, böylece aynı davranış her parça tipi için geçerli.
 
-## K-015 · Firmaya özel kategori ve şablonlar kütüphaneyi değiştirmez
+**Göze alınan:** Eşik değişikliği bütün filoya anında uygulanır; geçmişe dönük "o gün kritik miydi" sorusu için denetim kaydındaki eşik değişiklikleri referanstır.
 
-**Tarih:** 4 Kasım 2026 · **Durum:** Kabul
+## K-015 · Satınalma teslimatı stok kapısından geçer; ihtiyaç kuralla hesaplanır
 
-**Karar:** Ortak kütüphanedeki parça kategorileri ve makine şablonları salt okunurdur. Firma kendi kategorisini tanımlar; şablonu kütüphaneden kopyalayıp düzenler. Dolu bir pozisyon silinemez. Yeni eklenen pozisyonlar şemada çizilmez, tabloda görünür (sürükle-bırak çizim sonraki adım).
+**Karar:** Satınalma modülü (`0014`) kendi stok sayısı tutmaz. Teslim alma, kalem türüne göre zaten var olan iki girişten birini çağırır: sarf kalemi için `stock_move('in')` (maliyet = sipariş fiyatı, referans = sipariş no / irsaliye), seri numaralı parça için `part_items` + `received` olayı. Talep ve sipariş aynı tabloda yaşar (`status`: draft → ordered → partial → received, ya da cancelled); durum satırlardaki teslim miktarından hesaplanır. İhtiyaç önerisi bir görünümdür (`v_purchase_needs`): yaklaşan değişimler (kritik ya da *değişim ufku* saatinden az ömrü kalan takılı parçalar) + kritik seviye − stok − siparişte.
 
-**Neden:** Kütüphane tüm firmaların ortak zeminidir; bir firmanın değişikliği diğerlerini etkilememeli. Kopyala-düzenle modeli, kütüphane güncellendiğinde firmanın kendi şablonunu bozmaz.
+**Neden:** "Stokta kaç var" sorusunun tek cevabı olmalı (K-013). Ayrı bir satınalma stoğu ya da "yolda" sayacı tutulsa defterle çelişirdi. İhtiyacın görünüm olması, bildirim, dashboard ve Satınalma sayfasının aynı cümleyi söylemesini sağlar; eşik (ufuk) firma ayarıdır.
 
----
+**Göze alınan:** Talep aşamasında kalem değişebilir, sipariş verildikten sonra değişmez (yeni talep açılır); kısmi teslimatlı sipariş iptal edilemez, kalanı kapatılır. Fiyat teklifi karşılaştırma ve tedarikçi performansı bu sürümde yok.
 
-## K-016 · Üç ürün ailesi, tek kod tabanı: modüller firma bazında açılır
+## K-016 · Makine durumu iş emirlerinden türer; bakım sarfı stok kapısından düşer
 
-**Tarih:** 4 Kasım 2026 · **Durum:** Kabul
+**Karar:** Bakım modülü (`0015`) makine durumunu elle değil kuralla yönetir: açık arıza emri varken makine `down`, süren planlı emir varken `maintenance`, emir kalmayınca `active` (`app.asset_refresh_status`, iş emri tetikleyicisiyle). Duruş süresi arıza emrinin *makine durdu* → *çalışmaya döndü* farkıdır; ayrı duruş kaydı yok. Planın sarf listesi (filtre 4 adet, yağ 60 litre) emre kopyalanır ve emir tamamlanınca `stock_move('out')` ile makineye kullanım olarak düşer (referans = emir no); stok yetmezse emir tamamlanamaz. Tamamlarken girilen makine saati sayaçtan büyükse `record_meter_reading` ile sayaç da ilerler. Sıradaki bakım bir görünümdür (`v_maintenance_due`): son tamamlanan emrin saati/tarihi + periyot; hiç yapılmamışsa saat için bir sonraki periyot katı, takvim için plan tarihi + periyot.
 
-**Karar:** SpareTwin; ortak çekirdek (filo ve makine ikizi, saha kontrolü, parçalar, kayıt, etiketler, ayarlar) üzerine üç modül olarak sunulur: lastik ve jant (TireIQ), yedek parça ve bakım, KOBİ ERP (Faz 4). Modül bilgisi firma ayarlarında (`tenants.settings.modules`) tutulur. Kapalı modül menüden, panodan ve bildirimlerden kalkar; sayfasına doğrudan gelinirse "modül kapalı" açıklaması gösterilir. Veriler silinmez; modül tekrar açılınca her şey yerindedir.
+**Neden:** "Makine çalışıyor mu" sorusunun tek cevabı olmalı; elle `down` işaretlenen ama emri olmayan makine ile emri olup `active` görünen makine aynı anda var olamaz. Sarfın stoktan emirle düşmesi, K-013'teki tek defter ilkesini korur ve bakım maliyetini (işçilik + dış servis + sarf) kendiliğinden toplar. Görünüm olması, bildirim, dashboard, makine sayfası ve Bakım › Takvim'in aynı cümleyi söylemesini sağlar; *yaklaşıyor* eşiği firma ayarıdır.
 
-**Neden:** Lastikle işi olmayan bir makine firmasına "Jantlar" menüsü anlamsızdır ve ürünü olduğundan dar gösterir. Tek kod tabanı, ortak çekirdekteki her iyileştirmenin üç ürüne birden yansımasını sağlar; ayrı ürünler ise satış ve fiyatlandırmada esneklik verir.
+**Göze alınan:** Seri numaralı parça değişimi (lastik, silindir) emrin sarf listesine girmez; makine sayfasından tak/sök ile yapılır ve kendi maliyetini taşır. Planlı emirde iptal yöneticiye, başlatma ve tamamlama teknisyene aittir. Elle `maintenance` durumu, bir emir kapanınca `active`'e döner.
 
-**Sınır:** Modüller şimdilik yalnızca görünürlüğü ve bildirimleri kapatır; API uç noktaları kapalı modülde de çalışır. Fiyatlandırmaya bağlanınca (Faz 3) uç nokta düzeyinde de kontrol eklenecek.
+## K-017 · Toplam sahip olma maliyeti defterlerden toplanır; parça ilk takıldığı makineye yazılır
+
+**Karar:** Maliyet raporu (`0016`, `asset_tco`) yeni tablo tutmaz; her kalem kendi defterinden okunur. *Parça:* seri numaralı parçanın alış maliyeti ilk takıldığı makineye ve takıldığı güne yazılır; tamir / yenileme gibi olay maliyetleri olayın makinesine, makine yazılmamışsa parçanın o andan önce en son takıldığı makineye gider. *Sarf:* stok defterinden makineye yapılan çıkışlar (iş emrinin sarfı da buradan geçtiği için bir kez sayılır). *İşçilik ve dış servis:* tamamlanan iş emirleri. *Duruş:* arıza emirlerinin duruş aralığının döneme düşen kısmı × firmanın duruş saat maliyeti (`thresholds.downtime_cost_per_hour`, varsayılan 0 = hesaplanmaz); süren arıza bugüne kadar sayılır, iptal edilen emir sayılmaz. Saat başı maliyet, toplamın dönemdeki çalışma saatine bölümüdür; çalışma saati sayaç okumaları, tamamlanan kontroller ve iş emirlerindeki makine saatinden, dönem başı iki okuma arasından interpolasyonla bulunur.
+
+**Neden:** Stok (K-013) ve bakım (K-016) ile aynı ilke: bir sayının tek kaynağı olmalı. Ayrı bir maliyet tablosu defterlerle zamanla çelişirdi. Alışı ilk takılışa yazmak "bu makineye bu yıl ne harcadık" sorusuna nakit bazlı, açıklaması tek cümle olan bir cevap verir; rotasyonla başka makineye geçen lastik iki kez sayılmaz.
+
+**Göze alınan:** Nakit bazlı olduğu için lastik takımı değişen ay maliyet sıçrar; ömre yayılmış (amortisman) görünüm yok, lastikte bunu saat başı beklenen maliyet (`v_tire_health`) veriyor. İkinci el aktarılan parçanın maliyeti ilk makinede kalır. Duruş saat maliyeti firma oranıdır; makineye özel oran (`0017`, `assets.downtime_cost_per_hour`) doluysa onun yerine geçer, 0 da geçerli bir orandır (o makinenin duruşu maliyet yazmaz). Oran tarihçesi tutulmaz: değişen oran geçmiş dönemin raporunu da değiştirir. Saat kaydı dönem başını kapsamıyorsa saat başı maliyet olduğundan yüksek çıkar; arayüz bunu yıldızla belirtir.
+
+## K-018 · Tedarikçi karşılaştırma veri girişi istemez; sipariş ve teslim alma kayıtlarından hesaplanır
+
+**Karar:** Tedarikçi karşılaştırma (`GET /purchasing/supplier-comparison`) yeni tablo ya da giriş ekranı açmaz. Kaynak, verilmiş siparişlerdir (`ordered`, `partial`, `received`; talep ve iptal sayılmaz), dönem sipariş tarihine göredir. *Kaç kez:* kalemin geçtiği sipariş sayısı (açık sipariş de alımdır). *Fiyat:* miktar ağırlıklı ortalama birim fiyat ve son alış fiyatı. *Teslim süresi:* sipariş tarihinden kalemin son teslimatına kadar; yalnızca tamamı teslim alınan kalemler ölçülür. *Zamanında:* son teslimat siparişteki beklenen tarihte ya da öncesindeyse. *Eksik teslim:* kalanı kapatılan kalem. "En ucuz" ve "En hızlı" işareti, o kalemde en az iki tedarikçinin verisi varsa ve biri açıkça öndeyse konur; eşitlikte kimse işaretlenmez. Tek bir puan üretilmez.
+
+**Neden:** Teklifleri elle girip yan yana bakmak Excel'de yapılanı programa taşımaktan öteye geçmez; kullanıcı zaten yaptığı işi (sipariş ver, teslim al) yaparken karşılaştırma kendiliğinden çıkmalı. Tek puan yerine iki ayrı işaret, "neden bu tedarikçi" sorusunun cevabını gizlemez: ucuz olan geç getiriyorsa kararı işin aciliyeti verir. Aynı özet sipariş açarken kalemin altında görünür; karar orada verilir.
+
+**Göze alınan:** Sipariş geçmişi biriktikçe anlam kazanır; ilk aylarda tablo boş ya da tek tedarikçili görünür. Karşılaştırma aynı katalog kalemi içindir; muadil ürün ayrı kalemse yan yana gelmez. Beklenen tarihi girilmemiş sipariş zamanında oranına girmez. Fiyat teklifi toplama (tedarikçinin link üzerinden kendi teklifini girmesi) e-posta altyapısıyla birlikte Faz 3'e bırakıldı.
+
+## K-019 · Sökme sebebi sabit listeden seçilir; firmaya özel sebep yok
+
+**Karar:** Parça sökülürken sebep sekiz maddelik sabit listeden seçilir (aşınma, kesik / yırtık, darbe, ayrışma, basınç kaybı, sızıntı, rotasyon, diğer); API listede olmayan değeri reddeder. Firmanın kendi sebebini eklemesi yol haritasından çıkarıldı. Sebep raporu (`GET /reports/removal-reasons`) sökme olaylarını (`part_events`, `removed`) sebebe, katalog kalemine ve makineye göre sayar; her grupta sökme anındaki ortalama çalışma saatini verir. Rotasyon bir sökme sebebi değil yer değişimidir: ayrı sayılır, paylara girmez. Listede olmayan eski kodlar raporda "diğer" altında toplanır.
+
+**Neden:** Serbest ya da firmaya özel sebep, aynı şeyi birkaç ada böler ("kesik", "yırtık", "kesilme"); zaman içinde ve firmalar arasında karşılaştırma yapılamaz. Sabit liste, veriyi baştan temiz toplar; ileride lastik modeli ya da saha bazında "hangi sebep ömrü ne kadar kısaltıyor" sorusu ancak böyle cevaplanır. Ayrıntı isteyen teknisyen sökme notuna yazar.
+
+**Göze alınan:** Listeye uymayan durum "diğer"e düşer; "diğer" payı büyürse listeye yeni madde eklemek gerekir (herkes için, migrasyonsuz: liste kodda). Sebepler lastik ağırlıklıdır; lastik dışı parçalarda çoğu sökme "aşınma", "sızıntı" ya da "diğer" olur.
+
+## K-020 · Model parça listesi yol gösterir, engel koymaz; tam katalog değil kritik kalemler
+
+**Karar:** Model parça listesi (`0019`, `model_parts`) firmaya aittir ve iki tür satır tutar: yuvaya bağlı ("bu yuvaya bu katalog kalemi uyar"; miktar hep 1, bir yuvaya birden çok alternatif yazılabilir) ve makine geneli (sarf ya da yedek; miktar makine başına kullanım). Yuvaya yalnızca seri numaralı ve yuvanın parça tipindeki kalem yazılır. Takma kuralı değişmez: `install_part_item` yine yalnızca yuvanın parça tipini denetler. Liste arayüzde yol gösterir: takma penceresi stokta önce listeye uyanları gösterir, kullanıcı isterse diğerlerini açar; boş yuvada uygun kalem ve stok durumu görünür. Excel içe aktarma parça numarasıyla eşleşir ve ya hepsini yazar ya hiçbirini.
+
+**Neden:** Üreticinin binlerce satırlık tam parça kataloğunu kimse girmez; girilse de bakımı yapılmaz. Hedef, firmanın zaten izlediği 20 ila 50 kritik kalemdir. Listeyi katı kural yapmak (listede olmayan parça takılamaz) sahada işi durdurur: muadil lastik geldiğinde teknisyen takamaz, liste de çoğu zaman eksiktir. Yol göstermek yanlış ebat takma hatasını azaltır ama kararı sahaya bırakır.
+
+**Göze alınan:** Listede olmayan parça takılabilir; arayüz bunu "listede yok" diye işaretler ama engellemez. Şablondan silinen yuvanın satırı listede kalır ("şablonda yok" görünür). Liste şimdilik bakım planı sarflarını ve satınalma ihtiyacını beslemiyor; ikisi de aynı tablodan okunacak şekilde sonraya bırakıldı.
+
+## K-021 · Ürün ağacı: ürün başına tek ağaç, alt montaj ayrı tablo değil
+
+**Karar:** Üretim BOM'u (`0020`) iki tablodur: `boms` (üretilen katalog kalemi başına bir ağaç) ve `bom_lines` (bileşen, 1 birim ürün için miktar). Ürün ve bileşen aynı katalogdadır (`parts`). Alt montaj ayrı bir kavram değildir: kendi ağacı olan bileşen alt montajdır. Malzeme maliyeti yapraklardan yukarı toplanır; yaprağın maliyeti stok ortalama maliyeti, yoksa liste fiyatıdır; ikisi de yoksa sıfır sayılır ve ekranda işaretlenir. Döngü API'de engellenir. Model parça listesi (`model_parts`, K-020) ayrı kalır: o sahadaki makinenin bakımına, bu üretime bakar.
+
+**Neden:** Tek katalog, stok ve satınalmanın üretimle aynı kalemlerden konuşmasını sağlar (üretilebilirlik ve tedarik açığı bu ağaçtan hesaplanacak). Alt montajı ayrı tablo yapmak aynı bilgiyi iki yerde tutmak olurdu.
+
+**Göze alınan:** Revizyon (A, B sürümleri), alternatif bileşen ve fire payı yok; ilk imalatçı pilotuyla gerekirse eklenir. Excel biçimi kendi tasarımımızdır, gerçek bir müşteri dosyasıyla denenmedi.
+
+## K-022 · Üretim emri: işlemler rotadan kopyalanır, süre başla / durdur kaydından gelir
+
+**Karar:** Rota (`0021`, `bom_operations`) ürün ağacına bağlı sıralı işlem listesidir; süre 1 birim ürün içindir ve boş bırakılabilir. Üretim emri açılırken işlemler emre kopyalanır (`production_order_ops`, plan = birim süre × miktar). Gerçekleşen süre elle girilmez: işlem başında Başla / Durdur ile açılıp kapanan zaman kayıtlarının (`production_time_logs`) toplamıdır. Bir kişinin aynı anda tek açık kaydı olur; aynı işlemde birden çok kişi çalışabilir. "Bitti" işlemde süren bütün kayıtları kapatır; süre tutulmadan da bitti işaretlenebilir. Emir bütün işlemler bitmeden tamamlanamaz; iptal süren kayıtları kapatır ve emir işlem raporuna girmez. Kurallar veritabanı fonksiyonlarındadır (`prod_op_start`, `prod_op_stop`, `prod_set_status`). Rota ve emir açma / iptal yönetici, başla / durdur / bitir ve tamamlama teknisyen yetkisidir.
+
+**Neden:** Kopyalama, rota değişince açık emrin planının ve geçmiş raporun kaymasını önler. Sürenin kayıttan gelmesi, gün sonunda tahminle doldurulan formdan daha güvenilirdir ve kişi bazında ayrıntıyı bedavaya verir. Tek açık kayıt kuralı, unutulan sayaçların iki işe birden süre yazmasını engeller.
+
+**Göze alınan:** Emir stokla konuşmuyor: malzeme tüketimi ve mamul girişi yok (üretilebilirlik, fire ve üretim maliyeti kalemleriyle gelecek). İş istasyonu / makine ataması, işlemler arası zorunlu sıra, vardiya ve mola yok; durdurmayı unutan kişinin süresi akmaya devam eder ve düzeltme ekranı yok. Alt montaj için emir kendiliğinden açılmaz. Rapor işlemleri ada göre toplar; aynı işlem farklı ürünlerde farklı yazıldıysa ayrı satır olur.
+
+## K-023 · Üretilebilirlik: anlık hesap, seviye seviye netleştirme
+
+**Karar:** Üretilebilirlik ve tedarik açığı saklanmaz; her soruda ürün ağacı (`boms`, `bom_lines`), stok (`v_stock_totals`) ve yoldaki siparişlerden (`v_purchase_on_order`) hesaplanır. İhtiyaç yukarıdan aşağı netleştirilir: her bileşende önce eldeki stok kullanılır; yetmeyen kısım bileşen alt montajsa onun bileşenlerine açılır, satın alınan kalemse eksik yazılır. Aynı kalem ağacın birkaç dalında geçiyorsa stok bir kez paylaşılır. "Kaç birim üretilir" eksik çıkmayan en büyük tam sayıdır. "Eksik" stoka göredir; "alınacak" eksikten verilmiş siparişlerin kalan miktarı düşülerek bulunur (talep aşamasındaki sipariş sayılmaz). Üretilecek ürünün kendi stoku hesaba katılmaz: soru "kaç tane daha yapabilirim"dir.
+
+**Neden:** Saklanan bir plan tablosu, stok ve sipariş her değiştiğinde eskir ve yeniden üretilmesi gerekir; KOBİ ölçeğinde ağaçlar küçük olduğu için anlık hesap hem doğru hem yeterince hızlıdır. Alt montaj stokunu önce kullanmak, rafta hazır duran silindir varken bileşenlerini yeniden satın aldırmamak içindir.
+
+**Göze alınan:** Zaman boyutu yok: termin, tedarik süresi ve "ne zaman sipariş vermeliyim" hesaplanmaz. Açık üretim emirlerinin ihtiyacı düşülmez (emir stokla konuşmuyor, K-022); iki ürün aynı stoku ayrı ayrı "üretilebilir" gösterebilir. Depo ayrımı yok, firma toplam stoku kullanılır. Talep açıldıktan sonra sipariş verilene kadar aynı eksik yeniden talep edilebilir; ekran bunu engellemez. Fire payı ve asgari sipariş miktarı yok.
+
+## K-024 · Üretim emri stoku tamamlanırken işler; fire ve hurda emirde tutulur
+
+**Karar:** Emir açılırken ürün ağacının birinci seviye bileşenleri emre kopyalanır (`production_order_materials`, plan = ağaçtaki miktar × emir miktarı); ağaç sonradan değişse de emrin planı değişmez. Stok tek noktada, emir tamamlanırken işlenir (`prod_complete`): seçilen depodan her malzemenin gerçekleşen kullanımı çıkar, sağlam ürün aynı depoya girer; hepsi tek işlemdir, bir kalemin stoku yetmiyorsa hiçbiri yazılmaz. Fire = kullanılan − planlanan malzeme (eksi değer tasarruf); hurda = üretilip kullanılamayan ürün. Plandan fazla malzeme ve hurda için sebep zorunludur; sebepler sabit bir listedir (malzeme hatası, işçilik hatası, makine / kalıp arızası, ayar / deneme üretimi, ölçü dışı, taşıma / depolama hasarı, diğer). Alt montaj bileşenlerine açılmaz: stokta hazır olmalı, kendi emriyle üretilir.
+
+**Neden:** KOBİ atölyesinde malzeme çoğunlukla iş bitince sayılır; işlem başına ya da gün içinde tüketim girmek kimsenin yapmayacağı bir yüktür. Tek noktada işlemek stokla emrin birbirinden ayrışmasını da önler. Sabit sebep listesi raporu karşılaştırılabilir tutar; serbest metin dağılım vermez.
+
+**Göze alınan:** Emir sürerken malzeme stokta görünmeye devam eder; açık emir malzeme ayırmaz (üretilebilirlik hesabı da bunu bilmez, K-023). Seri numarasıyla tek tek izlenen kalemlerde (silindir, pompa, lastik) stok hareketi yapılmaz, yalnızca plan / kullanılan kaydedilir; bu kalemlerin giriş-çıkışı elle yapılır. Mamul stoğa maliyetsiz girer; birim maliyet "üretim maliyeti" kalemiyle gelecek. Hurda ürünün kendisi stoğa girmez ve değeri raporda yoktur (yalnızca malzeme firesinin tutarı var). Kısmi tamamlama yok: emir bir kerede kapanır. Tamamlanmış emir geri alınamaz; düzeltme stok sayımıyla yapılır.
+
+## K-025 · Üretim maliyeti emir tamamlanırken hesaplanır ve emre yazılır
+
+**Karar:** Üretim maliyeti üç kalemdir ve emir tamamlanırken (`prod_complete`, `0023`) hesaplanıp emre yazılır. *Malzeme:* her malzemenin kullanılan miktarı × tüketim anındaki birim maliyeti (stok ortalama maliyeti; seri numaralı kalemde liste fiyatı). *İşçilik:* emrin zaman kayıtlarının toplamı × firmanın işçilik saat maliyeti (`thresholds.labor_cost_per_hour`, Ayarlar; varsayılan 0). *Makine:* işlemin zaman kayıtları × işlemin makine saat maliyeti; oran rotada işleme yazılır (`bom_operations.machine_rate`), emir açılırken emre kopyalanır, boşsa o işlemde makine maliyeti yoktur. Birim maliyet = toplam / sağlam ürün: hurdanın maliyeti sağlam ürüne biner. Sağlam ürün stoğa bu birim maliyetle girer; böylece alt montaj üst ürünün malzeme maliyetine kendi üretim maliyetiyle taşınır. Planlanan maliyet saklanmaz: planlanan miktar ve süre, tamamlanmış emirde gerçekleşenle aynı fiyat ve oranla çarpılır (fark yalnızca miktar ve süreden gelir); açık emirde bugünkü stok maliyeti ve oranla.
+
+**Neden:** Emre yazmak, oran ya da stok maliyeti sonradan değişince kapanmış emrin ve geçmiş raporun kaymasını önler; TCO'da göze alınan "oran tarihçesi yok" sorunu (K-017) burada baştan yaşanmaz. Makine oranını ayrı bir iş istasyonu tablosu yerine rotadaki işleme yazmak, KOBİ atölyesinin zaten bildiği tek bilgiyi ister ("lazer saati şu kadar") ve yeni bir tanım ekranı açmaz. Süre zaten başla / durdur kaydından geldiği için (K-022) işçilik ve makine maliyeti ek veri girişi istemez.
+
+**Göze alınan:** İşçilik tek firma oranıdır; kişiye ya da işleme göre ücret yok. Makine süresi kişi süresinden gelir: aynı işlemde iki kişi çalışırsa makine saati iki kez sayılır, süre tutulmadan "bitti" denen işlemin işçilik ve makine maliyeti sıfırdır. Genel gider (kira, enerji, amortisman) payı yok. Maliyeti bilinmeyen malzeme sıfır sayılır. Üretilen ürün seri numarasıyla izleniyorsa stok hareketi yapılmaz (K-024), birim maliyet yalnızca emirde ve raporda görünür. `0023`'ten önce tamamlanan emirlerin maliyeti hesaplanmaz; raporda yer almazlar.
+
+## K-026 · Makine devri taşımadır, kopya değil; iki taraf kodla onaylar
+
+**Karar:** Teslim edilen makinenin ikizi alıcı firmaya *taşınır* (`0024`): makine, üzerinde takılı parça ikizleri ve bunların olay defteri, ölçümleri, kontrolleri, fotoğrafları ve sayaç okumaları aynı satırlar olarak kalır, yalnızca `tenant_id` değişir. Devir iki adımdır: devreden (manager ve üstü) makine için tek kullanımlık kod üretir (`DV-` + 10 karakter, 30 gün geçerli, iptal edilebilir); alıcı (manager ve üstü) kodu sorgulayıp ne alacağını görür, filo kodunu ve sahayı seçip devralır. Firmalar birbirini göremediği için dört işlem de yetkiyi kendi denetleyen `SECURITY DEFINER` fonksiyonlardır; `asset_transfers` tablosuna API rolü yalnızca okuma yapar. Devredene özel katalog kalemi, parça tipi, makine modeli ve pozisyon şablonu alıcıda aranır (aynı üretici + parça no; aynı model adı ve takılı parçaların yuvalarını karşılayan şablon), yoksa kopyalanır; şablon ve model görseli de çoğaltılır. Maliyet geçmez: parça alış fiyatı, olay maliyeti, liste fiyatı ve makineye özel duruş oranı boşaltılır. Her parçaya `transferred` olayı yazılır. Açık iş emri ya da taslak kontrol varken devir başlatılamaz ve tamamlanamaz.
+
+**Neden:** Fiziksel makine tektir; kopya, iki firmada ayrı ayrı yaşayan iki "ikiz" ve aynı QR etiketine iki kayıt demektir. Taşıma, parçanın geçmişini kesintisiz tek defterde tutar. Kod, devredenin alıcının firmasını bilmesini (ve firmaların birbirini aramasını) gerektirmez; alıcının açık onayı olmadan kimsenin filosuna makine düşmez, kodu bilmeyen de makineyi alamaz. Alış fiyatları üreticinin ticari sırrıdır; alıcı kendi maliyetini kendi girer.
+
+**Göze alınan:** Devir geri alınamaz; yanlış firmaya gittiyse alıcı aynı yolla geri devreder, ama boşaltılan maliyetler geri gelmez. Devreden makineyi ve parçalarını artık göremez; elinde yalnızca devir kaydı (makine kodu, seri, model, parça sayısı, kime, ne zaman) kalır. Devredenin o makineye ait kapanmış iş emirleri, stok hareketleri ve satınalma satırları kendisinde kalır ama makineyi gösteremez (iş emri listesi ve TCO raporunda görünmez); makineye bağlı bakım planları pasifleşir. Yalnızca takılı parçalar geçer; stoktaki yedekler, model parça listesi ve bakım planları geçmez. Alıcıda maliyeti boşalan parçaların saat başı maliyeti sıfır görünür. Alıcıda aynı kalemden aynı seri numarası varsa devir durur. Katalog kalemi görseli kopyalanmaz. Alıcının SpareTwin hesabı olmalıdır; hesapsız müşteriye "salt okunur ikiz" yok.
