@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useAsset, useAssets, useCatalogParts, useParts, useTireCost } from "../api/hooks";
+import { useModules, useAsset, useAssets, useCatalogParts, useParts, useTireCost } from "../api/hooks";
 import type { AssetSummary, Position } from "../api/types";
 import { MachineSchematic } from "../components/MachineSchematic";
 import { ReportButton } from "../components/ReportButton";
@@ -14,8 +14,12 @@ function FleetStrip({ assets, selected, onSelect }: {
   return (
     <section className="fleet" aria-label="Makineler">
       {assets.map((a) => {
-        const alert = a.critical_parts
-          ? <span className="alert t-critical">{a.critical_parts} kritik parça</span>
+        const alert = a.down_since
+          ? <span className="alert t-critical">⛔ Duruşta</span>
+          : a.critical_parts
+          ? <span className="alert t-critical">{a.critical_parts} kritik parça{a.maintenance_overdue ? " · bakım gecikti" : ""}</span>
+          : a.maintenance_overdue
+          ? <span className="alert t-critical">Bakım gecikti</span>
           : a.watch_parts
             ? <span className="alert t-watch">{a.watch_parts} parça takipte</span>
             : <span className="alert t-ok">Sorun yok</span>;
@@ -127,7 +131,9 @@ function TireCostPanel() {
 export function DashboardPage() {
   const assets = useAssets();
   const [assetId, setAssetId] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  const mods = useModules();
+  const [showAllState, setShowAll] = useState(false);
+  const showAll = showAllState || !mods.tireiq;  // lastik modülü kapalıysa her zaman tüm parçalar
   const [slot, setSlot] = useState<Position | null>(null);
   const asset = useAsset(assetId ?? undefined);
 
@@ -169,7 +175,7 @@ export function DashboardPage() {
           className="a-schem"
           title={a ? <Link to={`/makine/${a.id}`} className="plain">{a.code} · {a.manufacturer} {a.model}</Link> : "…"}
           sub={a ? `${LAYOUT_LABEL[a.layout ?? "generic"]}${a.site_name ? `, ${a.site_name}` : ""}, ${num(a.meter_hours)} motor saati. Bir parçaya dokun, ikizini aç.` : ""}
-          actions={
+          actions={mods.tireiq &&
             <div className="seg" role="group" aria-label="Gösterilen parçalar">
               <button aria-pressed={!showAll} onClick={() => setShowAll(false)}>Lastikler</button>
               <button aria-pressed={showAll} onClick={() => setShowAll(true)}>Tüm parçalar</button>
@@ -202,7 +208,7 @@ export function DashboardPage() {
           )}
         </Panel>
         <Priorities />
-        <TireCostPanel />
+        {mods.tireiq && <TireCostPanel />}
       </div>
     </>
   );

@@ -29,6 +29,8 @@ def list_assets(ctx: TenantCtx, storage: AppStorage, site_id: UUID | None = None
     with ctx.tx() as conn:
         rows = conn.execute(
             """select h.*, s.name as site_name,
+                      (select d.started_at from public.downtime_events d where d.asset_id = h.id and d.ended_at is null) as down_since,
+                      (select count(*) from public.v_maintenance_due m where m.asset_id = h.id and m.due_status = 'overdue') as maintenance_overdue,
                       coalesce(ai.storage_key, mi.storage_key) as img_key,
                       coalesce(ai.mime_type, mi.mime_type) as img_mime
                  from public.v_asset_health h

@@ -60,6 +60,8 @@ export interface AssetSummary {
   worst_condition_pct: number | null;
   last_inspection_at: string | null;
   unknown_parts: number;
+  down_since: string | null;
+  maintenance_overdue: number;
   image: Img | null;
 }
 
@@ -334,11 +336,11 @@ export interface RimRow {
 
 export interface Notification {
   key: string;
-  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing";
+  kind: "part_critical" | "rim_ndt" | "stock_low" | "asset_stale" | "rim_missing" | "po_late" | "maintenance_due" | "downtime_open";
   severity: "critical" | "watch";
   title: string;
   body: string;
-  link: { type: "part" | "rim" | "stock" | "asset"; id: string };
+  link: { type: "part" | "rim" | "stock" | "asset" | "po" | "maintenance"; id: string };
   at: string | null;
   read: boolean;
 }
@@ -377,4 +379,72 @@ export interface StockMovement {
   asset_code: string | null;
   asset_id: string | null;
   performed_by_name: string | null;
+}
+
+// ---------- Satınalma ----------
+export type PoStatus = "draft" | "ordered" | "partial" | "received" | "cancelled";
+
+export interface Supplier {
+  id: string; name: string; contact: string | null; phone: string | null; email: string | null;
+  notes: string | null; active: boolean; orders: number;
+}
+
+export interface Suggestion {
+  part_id: string; name: string; unit: Unit; category_code: string; is_serialized: boolean;
+  suggested_qty: number; qty: number; min_stock: number; on_order: number; upcoming: number;
+  reasons: string[]; unit_cost: number | null; supplier_id: string | null; supplier_name: string | null; urgent: boolean;
+}
+
+export interface PoSummary {
+  id: string; number: string; status: PoStatus; expected_date: string | null; created_at: string;
+  ordered_at: string | null; received_at: string | null; supplier_name: string | null; lines: number; total: number; late: boolean;
+}
+
+export interface PoLine {
+  id: string; part_id: string; part_name: string; part_no: string | null; unit: Unit; category_code: string;
+  is_serialized: boolean; qty: number; unit_cost: number | null; received_qty: number; remaining: number; note: string | null;
+}
+
+export interface PurchaseOrder {
+  id: string; number: string; status: PoStatus; supplier_id: string | null; supplier_name: string | null;
+  expected_date: string | null; notes: string | null; created_at: string; ordered_at: string | null;
+  received_at: string | null; lines: PoLine[]; total: number; late: boolean;
+}
+
+// ---------- Bakım, duruş, maliyet, ayarlar ----------
+export type DueStatus = "overdue" | "due_soon" | "ok" | "inactive";
+export interface MaintenancePlan {
+  id: string; asset_id: string; asset_code: string; name: string; interval_hours: number | null; interval_days: number | null;
+  last_done_hours: number | null; last_done_at: string | null; meter_hours: number; hours_left: number | null;
+  days_left: number | null; next_due_at: string | null; due_status: DueStatus; notes: string | null; active: boolean;
+  materials: { part_id: string; qty: number; name: string | null; unit: string | null }[];
+}
+export interface MaintenanceRecord {
+  id: string; asset_id: string; asset_code: string; plan_id: string | null; title: string; asset_hours: number | null;
+  labor_cost: number | null; notes: string | null; performed_at: string; performed_by_name: string | null;
+}
+export type DowntimeCategory = "breakdown" | "planned_maintenance" | "tire" | "waiting_parts" | "operational" | "other";
+export interface Downtime {
+  id: string; asset_id: string; asset_code: string; category: DowntimeCategory; description: string | null;
+  started_at: string; ended_at: string | null; cost: number | null; hours: number;
+}
+export interface CostRow {
+  id: string; code: string; manufacturer: string | null; model: string | null; meter_hours: number;
+  parts: number; parts_count: number; consumables: number; services: number; maintenance: number; maintenance_count: number;
+  downtime_cost: number; downtime_hours: number; hours_worked: number | null; total: number; cost_per_hour: number | null;
+}
+export interface Costs {
+  since: string | null; days: number; rows: CostRow[];
+  totals: { parts: number; consumables: number; services: number; maintenance: number; downtime_cost: number;
+            total: number; hours_worked: number; downtime_hours: number; cost_per_hour: number | null };
+}
+export interface Modules { tireiq: boolean; parts: boolean; erp: boolean }
+export interface TenantSettings { inspection_interval_days: number; purchase_horizon_hours: number; can_edit: boolean; modules: Modules }
+export interface CategoryDef {
+  id: string; code: string; name: string; is_serialized: boolean; library: boolean; catalog_items: number;
+  measurement_profile: ProfileItem[]; required_photo_angles: string[];
+}
+export interface TemplateDef {
+  id: string; name: string; layout: string; library: boolean; models: number;
+  positions: { code: string; label: string; category_code: string; axle: number | null; on_schematic: boolean }[];
 }

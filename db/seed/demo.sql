@@ -222,3 +222,60 @@ from (values
   ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000001', 'in',  120,  4.30,  null,    'satınalma', 'IRS-2026-0802', 80),
   ('51111111-0000-0000-0000-000000000012', '21111111-0000-0000-0000-000000000001', 'out', -40,  4.30,  'RS-02', 'yağ değişimi', null, 30)
 ) as v(part, site, kind, qty, cost, asset, reason, ref, days);
+
+-- ---------- Satınalma (Faz 2) ----------
+insert into public.suppliers (id, tenant_id, name, contact, phone, email) values
+  ('61111111-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Anadolu OTR Lastik Ltd.', 'Murat Kaya', '+90 232 555 10 10', 'satis@anadolu-otr.example'),
+  ('61111111-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Ege Filtre ve Yağ A.Ş.', 'Selin Demir', '+90 236 555 20 20', 'siparis@egefiltre.example');
+
+-- Teslim tarihi geçmiş sipariş (bildirim örneği): 3 adet 18.00-25
+insert into public.purchase_orders (id, tenant_id, number, supplier_id, status, expected_date, notes, ordered_at, created_at) values
+  ('71111111-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'SA-' || to_char(now(), 'YYYY') || '-0001',
+   '61111111-0000-0000-0000-000000000001', 'ordered', current_date - 5, 'RS-02 ön dingil için', now() - interval '20 days', now() - interval '21 days');
+insert into public.purchase_order_lines (tenant_id, po_id, part_id, qty, unit_cost) values
+  ('11111111-1111-1111-1111-111111111111', '71111111-0000-0000-0000-000000000001', '51111111-0000-0000-0000-000000000002', 3, 3150);
+
+-- Taslak talep: hidrolik filtre
+insert into public.purchase_orders (id, tenant_id, number, supplier_id, status, notes) values
+  ('71111111-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'SA-' || to_char(now(), 'YYYY') || '-0002',
+   '61111111-0000-0000-0000-000000000002', 'draft', 'Periyodik bakım stoku');
+insert into public.purchase_order_lines (tenant_id, po_id, part_id, qty, unit_cost) values
+  ('11111111-1111-1111-1111-111111111111', '71111111-0000-0000-0000-000000000002', '51111111-0000-0000-0000-000000000011', 10, 84);
+
+-- ---------- Bakım planları, bakım kayıtları, duruşlar (Faz 2) ----------
+insert into public.maintenance_plans (id, tenant_id, asset_id, name, interval_hours, interval_days, last_done_hours, last_done_at, materials, notes)
+select v.id::uuid, '11111111-1111-1111-1111-111111111111', (select id from public.assets where code = v.asset), v.name,
+       v.ih, v.idays, v.ldh, now() - make_interval(days => v.ago), v.mat::jsonb, v.notes
+from (values
+  ('81111111-0000-0000-0000-000000000001', 'LD-07', 'Hidrolik filtre değişimi', 500, null, 12000, 60,
+   '[{"part_id": "51111111-0000-0000-0000-000000000011", "qty": 2}]', 'Volvo bakım kılavuzu: 500 saatte bir'),
+  ('81111111-0000-0000-0000-000000000002', 'LD-09', 'Motor yağı değişimi', 250, null, 5900, 25,
+   '[{"part_id": "51111111-0000-0000-0000-000000000012", "qty": 30}]', null),
+  ('81111111-0000-0000-0000-000000000003', 'RS-02', 'Genel periyodik bakım', null, 180, 18100, 200, '[]', 'Yetkili servis'),
+  ('81111111-0000-0000-0000-000000000004', 'FL-14', 'Akü bakımı ve su seviyesi', null, 90, 9200, 30, '[]', null)
+) as v(id, asset, name, ih, idays, ldh, ago, mat, notes);
+
+insert into public.maintenance_records (tenant_id, asset_id, plan_id, title, asset_hours, labor_cost, notes, performed_at)
+select '11111111-1111-1111-1111-111111111111', (select id from public.assets where code = v.asset), v.plan::uuid, v.title, v.h, v.labor, v.notes,
+       now() - make_interval(days => v.ago)
+from (values
+  ('LD-07', '81111111-0000-0000-0000-000000000001', 'Hidrolik filtre değişimi', 12000, 450, 'Filtreler değişti, sızıntı yok', 60),
+  ('LD-09', '81111111-0000-0000-0000-000000000002', 'Motor yağı değişimi', 5900, 300, null, 25),
+  ('RS-02', '81111111-0000-0000-0000-000000000003', 'Genel periyodik bakım', 18100, 2400, 'Yetkili servis, fren balataları dahil', 200)
+) as v(asset, plan, title, h, labor, notes, ago);
+
+insert into public.downtime_events (tenant_id, asset_id, category, description, started_at, ended_at, cost)
+select '11111111-1111-1111-1111-111111111111', (select id from public.assets where code = v.asset), v.cat::app.downtime_category,
+       v.descr, now() - make_interval(hours => v.start_h), case when v.end_h is null then null else now() - make_interval(hours => v.end_h) end, v.cost
+from (values
+  ('LD-09', 'breakdown',     'Hidrolik hortum patladı', 180, 166, 1200),
+  ('RS-02', 'tire',          'A1-RO lastik kesiği, yedek takıldı', 480, 474, null),
+  ('FL-14', 'waiting_parts', 'Akü şarj tutmuyor, hücre bekleniyor', 18, null, null)
+) as v(asset, cat, descr, start_h, end_h, cost);
+
+-- ---------- Motor saati geçmişi: son 12 ay, aylık okuma (maliyet / saat hesabı için) ----------
+insert into public.meter_readings (tenant_id, asset_id, hours, source, read_at)
+select a.tenant_id, a.id, a.meter_hours - v.per_month * g.k, 'manual', now() - make_interval(days => 30 * g.k)
+  from public.assets a
+  join (values ('LD-07', 330), ('LD-09', 300), ('RS-02', 420), ('FL-14', 180)) as v(code, per_month) on v.code = a.code
+  cross join generate_series(0, 12) as g(k);

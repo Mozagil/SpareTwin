@@ -58,7 +58,10 @@ Durum renkleri her zaman metinle birlikte kullanılır (renk körlüğü): "Krit
 | Bildirimler | Üst çubukta zil | 1 | ✅ | `GET /notifications`, `POST /notifications/read` |
 | PDF durum raporu | Filo ve makine sayfalarında "PDF rapor" düğmesi | 1 | ✅ | `GET /reports/fleet.pdf?asset_id=&site_id=` |
 | Stok | `/stok` | 2 | ✅ | `GET /stock`, `GET /stock/{id}/movements`, `POST /stock/movements`, `POST /stock/transfer` |
-| Bakım planı | `/bakim` | 2 | | Faz 2 |
+| Satınalma | `/satinalma`, `/satinalma/:id` | 2 | ✅ | `GET /purchasing/suggestions`, `/suppliers`, `/purchase-orders` (+ `/order`, `/cancel`, `/receive`, satır işlemleri) |
+| Bakım ve duruş | `/bakim` | 2 | ✅ | `/maintenance/plans` (+ `/complete`), `/maintenance/records`, `/downtime` (+ `/end`) |
+| Maliyet | `/maliyet` | 2 | ✅ | `GET /costs/assets?days=`, `GET /costs/assets/{id}` |
+| Ayarlar | `/ayarlar` | 2 | ✅ | `/settings`, `/settings/categories`, `/settings/templates` |
 | Ayarlar | `/ayarlar` | 0–3 | | firma, kullanıcılar, kategoriler, şablonlar |
 
 ## Mobil inspeksiyon akışı (Faz 1)

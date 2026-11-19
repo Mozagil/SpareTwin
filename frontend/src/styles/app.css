@@ -63,18 +63,37 @@ h2 { font-family: var(--font-cond); font-weight: 600; font-size: 21px; margin: 0
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 /* ---------- Düzen ---------- */
-.app { display: grid; grid-template-columns: 76px minmax(0, 1fr); min-height: 100vh;
-       background: linear-gradient(to right, var(--rail) 76px, transparent 76px); }
-.rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 0;
+.app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh;
+       background: linear-gradient(to right, var(--rail) 220px, transparent 220px); }
+/* Kenar çubuğu: bölümlü (ortak çekirdek · lastik ve jant · yedek parça ve bakım · ERP · yönetim) */
+.rail { background: var(--rail); display: flex; flex-direction: column; gap: 2px; padding: 14px 10px; overflow-y: auto;
         position: sticky; top: 0; height: 100vh; }
+.brand-row { display: flex; align-items: center; gap: 10px; padding: 0 6px 14px; }
+.brand-name { color: #fff; font-family: var(--font-cond); font-weight: 700; font-size: 20px; letter-spacing: .3px; }
 .mark { width: 36px; height: 36px; border-radius: 10px; background: var(--brand); display: grid; place-items: center; flex: none; }
 .mark svg { width: 22px; height: 22px; }
-.rail .mark { margin-bottom: 14px; }
-.nav-item { width: 64px; padding: 8px 0 6px; border-radius: 10px; display: grid; justify-items: center; gap: 2px;
-            color: var(--rail-ink); opacity: .6; text-decoration: none; font-size: 11.5px; }
-.nav-item svg { width: 22px; height: 22px; }
-.nav-item.active { opacity: 1; background: color-mix(in srgb, var(--rail-ink) 14%, transparent); }
+.nav-section { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; padding-top: 10px;
+               border-top: 1px solid color-mix(in srgb, var(--rail-ink) 14%, transparent); }
+.nav-section-title { color: var(--rail-ink); opacity: .45; font-size: 11px; font-weight: 700; text-transform: uppercase;
+                     letter-spacing: .6px; padding: 0 10px 4px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; color: var(--rail-ink);
+            opacity: .7; text-decoration: none; font-size: 14px; font-weight: 500; }
+.nav-item svg { width: 20px; height: 20px; flex: none; }
+.nav-item.on { opacity: 1; background: color-mix(in srgb, var(--rail-ink) 14%, transparent); }
 .nav-item:hover { opacity: 1; }
+.nav-soon { opacity: .38; cursor: default; }
+.nav-soon:hover { opacity: .38; }
+.nav-soon em { margin-left: auto; font-style: normal; font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 6px;
+               background: color-mix(in srgb, var(--rail-ink) 18%, transparent); }
+/* Orta genişlik: ikon şeridi, bölümler ince çizgiyle */
+@media (max-width: 1180px) and (min-width: 681px) {
+  .app { grid-template-columns: 76px minmax(0, 1fr); background: linear-gradient(to right, var(--rail) 76px, transparent 76px); }
+  .rail { padding: 14px 6px; align-items: center; }
+  .brand-row { padding: 0 0 12px; } .brand-name { display: none; }
+  .nav-section { margin-top: 6px; padding-top: 6px; width: 100%; align-items: center; }
+  .nav-section-title, .nav-soon em { display: none; }
+  .nav-item { width: 64px; flex-direction: column; gap: 2px; padding: 8px 0 6px; font-size: 11px; justify-content: center; }
+}
 .main-col { min-width: 0; }
 .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px clamp(14px, 3vw, 32px);
           border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0; z-index: 5; }
@@ -290,6 +309,36 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); out
   border-radius: 10px; cursor: pointer; justify-self: center; }
 .lightbox-nav.prev { grid-column: 1; } .lightbox-nav.next { grid-column: 3; }
 
+/* ---------- Bakım, duruş, maliyet, ayarlar ---------- */
+.module-row { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding: 8px 0; cursor: pointer; }
+.module-row > span { display: grid; gap: 2px; }
+.module-row input { margin-top: 4px; }
+.module-row.disabled { opacity: .55; cursor: default; }
+.down-banner { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--critical) 12%, var(--surface)); border-left: 4px solid var(--critical); }
+.down-banner .btn { margin-left: auto; }
+.plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.plan-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.mat-list { margin: 0 0 6px; padding-left: 18px; }
+.mat-row, .profile-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.mat-row select { flex: 1 1 220px; width: auto; }
+.profile-row input { width: 120px; }
+.check-row { display: flex; flex-wrap: wrap; gap: 14px; }
+.row-down td:first-child { box-shadow: inset 3px 0 0 var(--critical); }
+.cph { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; min-width: 160px; }
+.cph span { display: block; height: 8px; border-radius: 4px; background: var(--brand); }
+.cost-table tfoot td { border-top: 2px solid var(--ink); font-weight: 600; }
+
+/* ---------- Satınalma ---------- */
+.qty-input { width: 84px !important; text-align: right; padding: 6px 8px !important; }
+.row-urgent td:first-child { box-shadow: inset 3px 0 0 var(--watch); }
+.suggest-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px; border-radius: var(--radius-s); background: var(--surface-2); }
+.recv-line { display: grid; grid-template-columns: 1fr 140px 1.3fr; gap: 12px; align-items: start; padding: 10px 0; border-top: 1px solid var(--line); }
+.narrow-form { max-width: 640px; }
+.mt { margin-top: 16px; }
+@media (max-width: 1000px) { .recv-line { grid-template-columns: 1fr; } }
+
 /* ---------- Stok ---------- */
 .site-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg-wrap { flex-wrap: wrap; }
@@ -416,9 +465,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); out
 @media (max-width: 680px) {
   .app { grid-template-columns: minmax(0, 1fr); padding-bottom: 64px; background: none; }
   .rail { position: fixed; bottom: 0; top: auto; left: 0; right: 0; height: auto; flex-direction: row; justify-content: space-around;
-          padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
-  .rail .mark { display: none; }
-  .nav-item.desktop-only { display: none; }
+          padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); z-index: 10; overflow: visible; }
+  .brand-row, .nav-section-title { display: none; }
+  .nav-section { display: contents; }
+  .nav-item { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 11px; min-width: 52px; }
+  .desktop-only { display: none !important; }
   .search { min-width: 0; flex: 1 1 100%; order: 5; }
   .facts { grid-template-columns: 1fr 1fr; }
   .asset-head { flex-direction: column; align-items: stretch; }

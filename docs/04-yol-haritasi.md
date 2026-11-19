@@ -97,14 +97,19 @@ Süreler 1–2 kişilik bir geliştirme ekibi için kaba tahmindir; her faz pilo
 
 | Kapsam | Not |
 |---|---|
-| Kategori ve ölçüm profili yönetim ekranı | Firma kendi parça tiplerini tanımlar |
-| Pozisyon şablonu düzenleyici | Firma kendi makine tipini çizer (sürükle-bırak x/y) |
+| ✅ **Kategori ve ölçüm profili yönetimi** (`/ayarlar`) | Firma kendi parça kategorilerini tanımlar: seri numaralı / sarf, kontrolde ölçülecekler (aralıkla), zorunlu fotoğraflar. Kütüphane salt okunur |
+| 🟡 Pozisyon şablonu düzenleyici | ✅ Kütüphaneden kopyala, pozisyon ekle/sil (dolu pozisyon silinemez). ⏳ Sürükle-bırak çizim: yeni pozisyonlar şimdilik şemada değil tabloda görünür |
 | ✅ **Depo ve stok hareketleri** (`/stok`) | Sarf malzemeleri (filtre, yağ, keçe) adet/litre/takım ile: giriş, makineye çıkış, sayım düzeltmesi, depolar arası transfer. Seviye hareketlerden hesaplanır, defter değiştirilemez, eksi stok yok, ağırlıklı ortalama maliyet. Seri numaralı stok aynı ekranda (`0012`) |
-| 🟡 Kritik stok uyarısı ve yaklaşan değişime göre ihtiyaç | ✅ Kritik seviye uyarısı (bildirim, dashboard, rapor) sarf dahil. ⏳ "LD-07 için 2 lastik yaklaşıyor, stokta 1 var" önerisi satınalma adımıyla gelecek |
-| Tedarikçi, satınalma talebi, sipariş, teslim alma | KOBİ ERP planındaki satınalma modülünün sade hali |
-| Bakım planları | Saat veya takvim bazlı periyodik bakım |
-| Arıza ve duruş kaydı | Duruş süresi, sebep, ilgili parça |
-| Makine toplam sahip olma maliyeti | Parça + bakım + duruş |
+| ✅ Kritik stok uyarısı ve yaklaşan değişime göre ihtiyaç | Kritik seviye uyarısı (bildirim, dashboard, rapor) sarf dahil. Satınalma önerisi: kritik seviye + 1.000 saat içinde değişecek lastikler − stok − yoldaki, gerekçesiyle |
+| ✅ **Satınalma** (`/satinalma`) | Tedarikçiler; talep → sipariş (yönetici) → kısmi/tam teslim alma; sarf stoğa, seri numaralı parça seri noyla girer; tedarikçi başına talep; geciken teslimat bildirimi; SA-YYYY-NNNN belge numarası (`0013`) |
+| ✅ **Bakım planları** (`/bakim`) | Saat ve/veya takvim periyodu, malzeme listesi; "yapıldı" → kayıt + plan sıfırlanır + malzeme stoktan makineye çıkar (yoksa hiçbiri yazılmaz); geciken/yaklaşan bildirimi (`0014`) |
+| ✅ **Arıza ve duruş** | Başlat / bitir, sebep, açıklama, tamir bedeli; makinede tek açık duruş; süren duruş bildirimi ve filo şeridinde "Duruşta" |
+| ✅ **Toplam sahip olma maliyeti** (`/maliyet`) | Dönemlik (30/90/365 gün, tümü): parça, sarf, servis, bakım işçiliği, duruş; saat başı maliyet motor saati geçmişinden. Excel ile ilk kurulum maliyete girmez |
+| ✅ Firma ayarları | Saha kontrolü aralığı, satınalma ufku (bildirim ve önerilere bağlı) |
+
+| ✅ **Modüler yapı** (v2.1) | Menü ürün ailelerine ayrıldı: ortak çekirdek · lastik ve jant (TireIQ) · yedek parça ve bakım · KOBİ ERP (yakında). Modüller firma bazında açılır/kapanır (Ayarlar → Genel); kapalı modül menüden, bildirimlerden ve panodan kalkar, veriler silinmez |
+
+**Faz 2 yazılımı tamamlandı (v2.0).** Kalan: şablon için sürükle-bırak çizim, firmaya özel sökme sebepleri (Faz 3 ayarlarına).
 
 **Bitiş kriteri:** Pilot firmalardan biri en az bir lastik dışı parça grubunu (hidrolik, akü veya zincir) aktif izliyor ve stok uyarısıyla en az bir sipariş açılmış.
 

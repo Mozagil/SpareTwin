@@ -7,6 +7,8 @@ import { MachineSchematic } from "../components/MachineSchematic";
 import { InstallModal, PartTwin, RemoveModal } from "../components/PartActions";
 import { ImageBox } from "../components/Images";
 import { ReportButton } from "../components/ReportButton";
+import { AssetOps } from "../components/Ops";
+import { useDowntime, usePlans } from "../api/hooks";
 import { BandChip, ErrorNote, Loading, Modal, Field, Panel } from "../components/ui";
 import { LAYOUT_LABEL, categoryLabel, date, num, pct } from "../lib/format";
 
@@ -39,6 +41,9 @@ export function AssetPage() {
   const [selected, setSelected] = useState<Position | null>(null);
   const [modal, setModal] = useState<{ kind: "install" | "remove" | "meter"; pos?: Position } | null>(null);
 
+  const plans = usePlans(id);
+  const downtime = useDowntime(id);
+  const openDown = downtime.data?.find((d) => !d.ended_at);
   // Başka bir makineye geçilince seçim sıfırlanır
   useEffect(() => {
     setSelected(null);
@@ -102,6 +107,11 @@ export function AssetPage() {
           ) : <p className="muted">Şemadan veya tablodan bir pozisyon seçin.</p>}
         </Panel>
       </div>
+
+      <Panel title="Bakım ve duruş" className="mt">
+        <AssetOps assetId={a.id} code={a.code} plans={plans.data ?? []}
+                  downSince={openDown?.started_at ?? null} openDowntimeId={openDown?.id ?? null} />
+      </Panel>
 
       <Panel title="Pozisyonlar" className="mt">
         <div className="table-wrap">

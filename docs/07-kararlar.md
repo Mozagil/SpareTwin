@@ -174,3 +174,37 @@ Her önemli karar burada: ne seçildi, neden, neyi göze aldık. Bir karar deği
 **Neden:** Miktar alanı ile hareket geçmişi zamanla çelişir ("sistemde 12 yazıyor ama hareketler 10 diyor"). Tek kaynak bu çelişkiyi imkânsız kılar ve her sayının nereden geldiği izlenebilir. Makineye bağlanan çıkışlar, toplam sahip olma maliyetinin (Faz 2 sonu) temelidir.
 
 **Seri numaralı parçalar:** Lastik, jant, silindir gibi parçalar zaten tek tek izleniyor; stoktakiler aynı görünümde sayılır, girişleri "Parça teslim al" ile yapılır.
+
+---
+
+## K-014 · Toplam sahip olma maliyeti yalnızca kayıtlardan; ilk kurulum sayılmaz
+
+**Tarih:** 4 Kasım 2026 · **Durum:** Kabul
+
+**Karar:** Maliyet ekranı tahmin içermez; yalnızca sistemdeki kayıtları toplar: dönemde makineye ilk kez takılan parçaların alış bedeli, makineye yapılan stok çıkışları, parça olaylarına girilen bedeller, bakım işçiliği ve duruş tamir bedelleri. Saat başı maliyet, aynı dönemde çalışılan motor saatine (motor saati geçmişi) bölünür. Rotasyon parça maliyetini tekrar saymaz. Excel ile ilk kurulumda içe aktarılan parçalar sayılmaz.
+
+**Neden:** Bir firma filosunu sisteme ilk aktardığında, zaten takılı olan yüzlerce lastik "bugün takıldı" görünür; bunları o dönemin harcaması saymak ilk ay raporunu tamamen yanıltırdı. Tahmin içermeyen bir hesap, yöneticinin her rakamı kaynağına kadar izleyebilmesini sağlar.
+
+**Bilinen sınır:** Yakıt ve operatör maliyeti henüz yok. Makine dışındayken yapılan tamirler (lastik tamire gitti) parça olayına bağlıdır, makineye bağlanmaz.
+
+---
+
+## K-015 · Firmaya özel kategori ve şablonlar kütüphaneyi değiştirmez
+
+**Tarih:** 4 Kasım 2026 · **Durum:** Kabul
+
+**Karar:** Ortak kütüphanedeki parça kategorileri ve makine şablonları salt okunurdur. Firma kendi kategorisini tanımlar; şablonu kütüphaneden kopyalayıp düzenler. Dolu bir pozisyon silinemez. Yeni eklenen pozisyonlar şemada çizilmez, tabloda görünür (sürükle-bırak çizim sonraki adım).
+
+**Neden:** Kütüphane tüm firmaların ortak zeminidir; bir firmanın değişikliği diğerlerini etkilememeli. Kopyala-düzenle modeli, kütüphane güncellendiğinde firmanın kendi şablonunu bozmaz.
+
+---
+
+## K-016 · Üç ürün ailesi, tek kod tabanı: modüller firma bazında açılır
+
+**Tarih:** 4 Kasım 2026 · **Durum:** Kabul
+
+**Karar:** SpareTwin; ortak çekirdek (filo ve makine ikizi, saha kontrolü, parçalar, kayıt, etiketler, ayarlar) üzerine üç modül olarak sunulur: lastik ve jant (TireIQ), yedek parça ve bakım, KOBİ ERP (Faz 4). Modül bilgisi firma ayarlarında (`tenants.settings.modules`) tutulur. Kapalı modül menüden, panodan ve bildirimlerden kalkar; sayfasına doğrudan gelinirse "modül kapalı" açıklaması gösterilir. Veriler silinmez; modül tekrar açılınca her şey yerindedir.
+
+**Neden:** Lastikle işi olmayan bir makine firmasına "Jantlar" menüsü anlamsızdır ve ürünü olduğundan dar gösterir. Tek kod tabanı, ortak çekirdekteki her iyileştirmenin üç ürüne birden yansımasını sağlar; ayrı ürünler ise satış ve fiyatlandırmada esneklik verir.
+
+**Sınır:** Modüller şimdilik yalnızca görünürlüğü ve bildirimleri kapatır; API uç noktaları kapalı modülde de çalışır. Fiyatlandırmaya bağlanınca (Faz 3) uç nokta düzeyinde de kontrol eklenecek.

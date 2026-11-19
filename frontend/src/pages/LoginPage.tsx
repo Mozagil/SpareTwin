@@ -31,7 +31,7 @@ export function LoginPage() {
           </div>
           <div>
             <h1>SpareTwin</h1>
-            <p className="sub">Lastik ve parça ikizi</p>
+            <p className="sub">Makine ve yedek parça ikizi</p>
           </div>
         </div>
         <Field label="E-posta">

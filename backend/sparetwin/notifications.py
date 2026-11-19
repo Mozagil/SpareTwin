@@ -13,9 +13,13 @@ from uuid import UUID
 
 import psycopg
 
-STALE_DAYS = 30
+STALE_DAYS = 30  # varsayılan; firma ayarı (inspection_interval_days) önceliklidir
 CAT_TR = {"tire": "lastik", "rim": "jant", "hyd_cylinder": "hidrolik silindir", "hyd_pump": "hidrolik pompa",
           "battery": "akü", "filter": "filtre"}
+
+
+DOWNTIME_TR = {"breakdown": "Arıza", "planned_maintenance": "Planlı bakım", "tire": "Lastik", "waiting_parts": "Parça bekleniyor",
+               "operational": "Operasyonel", "other": "Diğer"}
 
 
 def _n(v: Any) -> str:
@@ -68,8 +72,10 @@ def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
             "body": f"Depoda {qty} {s['unit']}, kritik seviye {s['min_stock']}",
             "link": {"type": "stock", "id": str(s["id"])}, "at": None})
 
-    # 4) Uzun süredir kontrol edilmeyen makineler
-    limit = datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)
+    # 4) Uzun süredir kontrol edilmeyen makineler (firma ayarı)
+    from .api.settings import get_settings
+    stale_days = get_settings(conn, tenant_id)["inspection_interval_days"]
+    limit = datetime.now(timezone.utc) - timedelta(days=stale_days)
     for a in conn.execute(
         """select a.id, a.code, a.created_at,
                   (select max(i.completed_at) from public.inspections i
@@ -82,8 +88,55 @@ def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
                 "key": f"stale:{a['id']}:{a['last'].date().isoformat() if a['last'] else 'never'}",
                 "kind": "asset_stale", "severity": "watch",
                 "title": f"{a['code']} {days} gündür kontrol edilmedi" if a["last"] else f"{a['code']} hiç kontrol edilmedi",
-                "body": f"Saha kontrolü {STALE_DAYS} günde bir önerilir",
+                "body": f"Saha kontrolü {stale_days} günde bir önerilir",
                 "link": {"type": "asset", "id": str(a["id"])}, "at": a["last"]})
+
+    # 7) Bakım planları: geciken ve yaklaşan
+    for m in conn.execute(
+        """select id, asset_id, asset_code, name, due_status, hours_left, days_left, last_done_at, last_done_hours
+             from public.v_maintenance_due where tenant_id = %s and due_status in ('overdue', 'due_soon')""",
+        [tenant_id]).fetchall():
+        overdue = m["due_status"] == "overdue"
+        parts = []
+        if m["hours_left"] is not None:
+            parts.append(f"{_n(-m['hours_left'])} saat gecikti" if m["hours_left"] < 0 else f"{_n(m['hours_left'])} saat kaldı")
+        if m["days_left"] is not None:
+            parts.append(f"{-m['days_left']} gün gecikti" if m["days_left"] < 0 else f"{m['days_left']} gün kaldı")
+        out.append({
+            "key": f"maint:{m['id']}:{m['due_status']}:{m['last_done_hours']}:{m['last_done_at'].date() if m['last_done_at'] else ''}",
+            "kind": "maintenance_due", "severity": "critical" if overdue else "watch",
+            "title": f"{m['asset_code']}: {m['name']} {'gecikti' if overdue else 'yaklaşıyor'}",
+            "body": " · ".join(parts) or "Hiç yapılmadı",
+            "link": {"type": "maintenance", "id": str(m["id"])}, "at": None})
+
+    # 8) Süren duruşlar
+    for d in conn.execute(
+        """select d.id, d.asset_id, a.code, d.category, d.description, d.started_at
+             from public.downtime_events d join public.assets a on a.id = d.asset_id
+            where d.tenant_id = %s and d.ended_at is null""", [tenant_id]).fetchall():
+        h = (datetime.now(timezone.utc) - d["started_at"]).total_seconds() / 3600
+        dur = f"{h:.0f} saattir" if h < 48 else f"{h / 24:.0f} gündür"
+        out.append({
+            "key": f"down:{d['id']}", "kind": "downtime_open", "severity": "critical",
+            "title": f"{d['code']} {dur} duruşta",
+            "body": d["description"] or DOWNTIME_TR.get(d["category"], d["category"]),
+            "link": {"type": "asset", "id": str(d["asset_id"])}, "at": d["started_at"]})
+
+    # 6) Teslimatı geciken siparişler
+    for po in conn.execute(
+        """select po.id, po.number, po.expected_date, s.name as supplier,
+                  count(*) filter (where l.received_qty < l.qty) as open_lines
+             from public.purchase_orders po
+             left join public.suppliers s on s.id = po.supplier_id
+             join public.purchase_order_lines l on l.po_id = po.id
+            where po.tenant_id = %s and po.status in ('ordered', 'partial') and po.expected_date < current_date
+            group by po.id, s.name""", [tenant_id]).fetchall():
+        days = (datetime.now(timezone.utc).date() - po["expected_date"]).days
+        out.append({
+            "key": f"po_late:{po['id']}:{po['expected_date'].isoformat()}", "kind": "po_late", "severity": "watch",
+            "title": f"{po['number']} teslimatı {days} gün gecikti",
+            "body": f"{po['supplier'] or 'Tedarikçi yok'} · {po['open_lines']} kalem bekleniyor",
+            "link": {"type": "po", "id": str(po["id"])}, "at": None})
 
     # 5) Lastiği takılı ama jantı kaydedilmemiş pozisyonlar (muayene takibi yapılamıyor)
     for g in conn.execute(
@@ -102,6 +155,16 @@ def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
             "title": f"{g['code']}: {g['n']} jant kaydı yok",
             "body": "Lastiği takılı ama jantı kaydedilmemiş pozisyonlar var; bu jantların muayenesi takip edilmiyor",
             "link": {"type": "asset", "id": str(g["id"])}, "at": None})
+
+    # Kapalı modüllerin bildirimleri gösterilmez
+    from .api.settings import get_settings
+    mods = get_settings(conn, tenant_id)["modules"]
+    hidden = set()
+    if not mods["tireiq"]:
+        hidden |= {"rim_ndt", "rim_missing"}
+    if not mods["parts"]:
+        hidden |= {"stock_low", "po_late", "maintenance_due", "downtime_open"}
+    out = [n for n in out if n["kind"] not in hidden]
 
     order = {"critical": 0, "watch": 1}
     out.sort(key=lambda n: (order[n["severity"]], n["title"]))
