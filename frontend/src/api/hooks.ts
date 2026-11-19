@@ -20,6 +20,7 @@ import type {
   ProductionOrder,
   ScrapReason,
   ScrapReport,
+  CostReport,
   ProductionOrderRow,
   RouteOperation,
   InspectionSummary,
@@ -59,6 +60,10 @@ import type {
   SupplierComparison,
   SupplierIn,
   TireCost,
+  TransferAccepted,
+  TransferPreview,
+  TransferRow,
+  PendingTransfer,
   Wear,
 } from "./types";
 
@@ -310,7 +315,7 @@ export const useRoute = (bomId: string) =>
 export function useSaveRoute(bomId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (operations: { name: string; planned_minutes: number | null }[]) =>
+    mutationFn: (operations: { name: string; planned_minutes: number | null; machine_rate: number | null }[]) =>
       api<RouteOperation[]>(`/production/routes/${bomId}`, { method: "PUT", body: { operations } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["product-route", bomId] }),
   });
@@ -329,6 +334,9 @@ export const useOperationReport = (months: number) =>
 
 export const useScrapReport = (months: number) =>
   useQuery({ queryKey: ["production-orders", "scrap", months], queryFn: () => api<ScrapReport>(`/production/reports/scrap?months=${months}`) });
+
+export const useCostReport = (months: number) =>
+  useQuery({ queryKey: ["production-orders", "cost", months], queryFn: () => api<CostReport>(`/production/reports/cost?months=${months}`) });
 
 export function useProductionOrderActions() {
   const qc = useQueryClient();
@@ -613,6 +621,36 @@ export function useMaintenanceActions() {
     }),
     setWorkOrderStatus: useMutation({
       mutationFn: ({ id, body }: { id: string; body: WoStatusIn }) => api<WorkOrderDetail>(`/maintenance/work-orders/${id}/status`, { method: "POST", body }),
+      onSuccess: refresh,
+    }),
+  };
+}
+
+// ---------- Makine devri ----------
+export const useTransfers = () => useQuery({ queryKey: ["transfers"], queryFn: () => api<TransferRow[]>("/transfers") });
+
+export function useTransferActions() {
+  const qc = useQueryClient();
+  // Devralınan makineyle birlikte model, şablon, parça tipi ve katalog kalemi de gelebilir
+  const refresh = () => Promise.all(
+    ["transfers", "assets", "asset", "parts", "part", "catalog-parts", "asset-models", "templates", "categories", "rims", "notifications", "audit"]
+      .map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  return {
+    create: useMutation({
+      mutationFn: (v: { assetId: string; note: string | null }) =>
+        api<PendingTransfer>(`/assets/${v.assetId}/transfer`, { method: "POST", body: { note: v.note } }),
+      onSuccess: refresh,
+    }),
+    cancel: useMutation({
+      mutationFn: (id: string) => api(`/transfers/${id}/cancel`, { method: "POST" }),
+      onSuccess: refresh,
+    }),
+    preview: useMutation({
+      mutationFn: (code: string) => api<TransferPreview>("/transfers/preview", { query: { code } }),
+    }),
+    accept: useMutation({
+      mutationFn: (b: { code: string; asset_code: string | null; site_id: string | null }) =>
+        api<TransferAccepted>("/transfers/accept", { method: "POST", body: b }),
       onSuccess: refresh,
     }),
   };

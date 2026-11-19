@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { ProductLine } from "../api/types";
-import { deviation, duration, flatten, leafTotals, waste } from "./production";
+import { costDiff, deviation, duration, flatten, leafTotals, waste } from "./production";
+
+describe("costDiff", () => {
+  it("gerçekleşen − planlanan, kuruşa yuvarlı", () => {
+    expect([costDiff(90, "130.5"), costDiff("40", 30), costDiff(0.1, 0.3), costDiff(12, 12)]).toEqual([40.5, -10, 0.2, 0]);
+  });
+});
 
 describe("waste", () => {
   it("fazla kullanım fire, az kullanım tasarruf", () => {

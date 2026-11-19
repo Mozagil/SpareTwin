@@ -8,6 +8,7 @@ import { CategoriesPanel } from "./CategoriesPanel";
 import { ImportPanel } from "./ImportPanel";
 import { ModelBomModal } from "./ModelBomModal";
 import { TemplatesPanel } from "./TemplatesPanel";
+import { TransferPanel } from "./TransferPanel";
 import { CATEGORY_LABEL, LAYOUT_LABEL } from "../lib/format";
 
 const nOrNull = (v: string) => (v.trim() === "" ? null : Number(v));
@@ -347,9 +348,10 @@ const TABS: { key: string; label: string; min: Role; el: () => ReactElement; hin
   { key: "sablon", label: "Pozisyon şablonları", min: "manager", el: TemplatesPanel, hint: "Makine tipinin yuvaları ve şemadaki yerleri." },
   { key: "saha", label: "Saha", min: "manager", el: SiteForm, hint: "Maden, liman, şantiye veya depo." },
   { key: "excel", label: "Excel'den içe aktar", min: "manager", el: ImportPanel, hint: "Mevcut lastik listenizi tek seferde sisteme alın." },
+  { key: "devral", label: "Makine devral", min: "manager", el: TransferPanel, hint: "Üreticinin ya da önceki sahibinin devrettiği makineyi parça ikizleriyle filonuza alın." },
 ];
 
-const WIDE = new Set(["excel", "tipler", "sablon", "model"]);
+const WIDE = new Set(["excel", "tipler", "sablon", "model", "devral"]);
 
 export function RegisterPage() {
   const { can } = useAuth();

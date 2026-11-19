@@ -10,6 +10,7 @@ import { num, num1, usd } from "../lib/format";
 import { flatten, leafTotals } from "../lib/production";
 import { OperationReportPanel, OrderModal, OrdersPanel } from "./ProductionOrdersPanel";
 import { BuildablePanel } from "./BuildablePanel";
+import { CostReportPanel } from "./ProductionCost";
 import { ScrapReportPanel } from "./ProductionScrap";
 import { RoutePanel } from "./RoutePanel";
 
@@ -33,7 +34,7 @@ export function ProductionPage() {
       </div>
       {tab === "agaclar" && <BomsPanel />}
       {tab === "emirler" && <OrdersPanel onOpen={(id) => set("emir", id)} />}
-      {tab === "rapor" && <div className="stack prod-reports"><OperationReportPanel /><ScrapReportPanel /></div>}
+      {tab === "rapor" && <div className="stack prod-reports"><CostReportPanel /><OperationReportPanel /><ScrapReportPanel /></div>}
       {openId && <OrderModal id={openId} onClose={() => set("emir", "")} />}
     </>
   );

@@ -36,6 +36,11 @@ export function waste(planned: number | string, actual: number | string): { diff
   return { diff, pct: p > 0 ? Math.round((diff / p) * 100) : 0 };
 }
 
+/** Maliyet farkı: gerçekleşen − planlanan, kuruşa yuvarlı (eksi = plandan ucuz). */
+export function costDiff(planned: number | string, actual: number | string): number {
+  return Math.round((Number(actual) - Number(planned)) * 100) / 100;
+}
+
 export interface FlatLine extends ProductLine {
   depth: number;
   /** Kökten bu satıra yol; açma/kapama ve React anahtarı */

@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { BandChip, Empty, ErrorNote, Field, Loading, Modal, Panel } from "../components/ui";
 import { date, dateTime, num, num1 } from "../lib/format";
 import { PROD_STATUS_BAND, PROD_STATUS_LABEL, SCRAP_REASON_LABEL, deviation, duration } from "../lib/production";
+import { OrderCost } from "./ProductionCost";
 import { FinishForm, MaterialsTable } from "./ProductionScrap";
 
 const qty = (v: number | string, unit: string | null) => `${Number.isInteger(Number(v)) ? num(Number(v)) : num1(Number(v))} ${unit ?? ""}`.trim();
@@ -165,6 +166,7 @@ export function OrderModal({ id, onClose }: { id: string; onClose: () => void })
           <ErrorNote error={start.error ?? stop.error ?? setStatus.error} />
           {open && finishing ? <FinishForm order={o} onCancel={() => setFinishing(false)} />
             : <MaterialsTable materials={o.materials} done={o.status === "done"} />}
+          {o.status !== "cancelled" && !finishing && <OrderCost order={o} />}
           {o.logs.length > 0 && (
             <details className="prod-logs">
               <summary>Zaman kayıtları ({num(o.logs.length)})</summary>

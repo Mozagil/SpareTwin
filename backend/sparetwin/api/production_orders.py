@@ -1,11 +1,15 @@
-"""Üretim emri, rota, işlem süresi, fire ve hurda.
+"""Üretim emri, rota, işlem süresi, fire, hurda ve üretim maliyeti.
 
 Rota: ürün ağacının sıralı işlemleri ve 1 birim için planlanan süre. Emir açılınca işlemler
 ve ürün ağacının birinci seviye bileşenleri emre kopyalanır (plan = birim × miktar); işlem
 başında başla / durdur ile süre tutulur. Emir tamamlanırken gerçekleşen malzeme kullanımı
 stoktan düşer, sağlam ürün stoğa girer; plandan fazlası fire, kullanılamayan ürün hurdadır.
 Yetki: rota, emir açma ve iptal yönetici (manager) ve üstü; başla / durdur / bitir ve emri
-tamamlama teknisyen ve üstü. Kurallar veritabanında (0021, 0022).
+tamamlama teknisyen ve üstü. Kurallar veritabanında (0021, 0022, 0023).
+
+Maliyet = malzeme + işçilik + makine saati. Emir tamamlanırken hesaplanır ve emre yazılır
+(prod_complete); açık emirde yalnızca plan gösterilir. İşçilik oranı firma ayarıdır
+(labor_cost_per_hour), makine oranı rotada işleme yazılır.
 """
 
 import json
@@ -18,6 +22,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, model_validator
 
+from ..tenant_settings import thresholds
 from .deps import TenantCtx
 
 router = APIRouter(prefix="/production", tags=["Üretim"])
@@ -30,6 +35,7 @@ ScrapReason = Literal["material", "workmanship", "machine", "setup", "dimension"
 class OperationIn(BaseModel):
     name: str = Field(min_length=2, max_length=80)
     planned_minutes: Decimal | None = Field(None, gt=0, le=100_000, description="1 birim ürün için; boş = bilinmiyor")
+    machine_rate: Decimal | None = Field(None, ge=0, le=100_000, description="Makine saat maliyeti; boş = bu işlemde makine maliyeti yok")
 
 
 class RouteIn(BaseModel):
@@ -49,7 +55,7 @@ def _bom(conn, bom_id: UUID, tenant_id: UUID) -> None:
 
 
 def _route(conn, bom_id: UUID) -> list[dict]:
-    return conn.execute("select id, seq, name, planned_minutes from public.bom_operations where bom_id = %s order by seq",
+    return conn.execute("select id, seq, name, planned_minutes, machine_rate from public.bom_operations where bom_id = %s order by seq",
                         [bom_id]).fetchall()
 
 
@@ -68,8 +74,9 @@ def route_put(bom_id: UUID, body: RouteIn, ctx: TenantCtx, request: Request):
         conn.execute("delete from public.bom_operations where bom_id = %s", [bom_id])
         for i, o in enumerate(body.operations, 1):
             conn.execute(
-                "insert into public.bom_operations (tenant_id, bom_id, seq, name, planned_minutes) values (%s, %s, %s, %s, %s)",
-                [ctx.tenant_id, bom_id, i, o.name.strip(), o.planned_minutes])
+                """insert into public.bom_operations (tenant_id, bom_id, seq, name, planned_minutes, machine_rate)
+                   values (%s, %s, %s, %s, %s, %s)""",
+                [ctx.tenant_id, bom_id, i, o.name.strip(), o.planned_minutes, o.machine_rate])
         request.state.audit = {"operations": len(body.operations)}
         return _route(conn, bom_id)
 
@@ -109,6 +116,9 @@ ORDER_SQL = """
 select o.id, o.number, o.part_id, p.name, p.part_no, p.unit, o.qty, o.status, o.due_at, o.notes,
        o.started_at, o.completed_at, o.created_at, cu.full_name as created_by_name,
        o.good_qty, o.scrap_qty, o.scrap_reason, o.site_id, s.name as site_name,
+       o.labor_rate, o.material_cost, o.labor_cost, o.machine_cost,
+       o.material_cost + o.labor_cost + o.machine_cost as total_cost,
+       round((o.material_cost + o.labor_cost + o.machine_cost) / nullif(o.good_qty, 0), 2) as unit_cost,
        (o.status in ('open', 'in_progress') and coalesce(o.due_at < current_date, false)) as late,
        x.op_count, x.ops_done, x.planned_minutes, x.actual_minutes, x.running
   from public.production_orders o
@@ -128,7 +138,7 @@ def _order(conn, order_id: UUID, ctx: TenantCtx) -> dict:
     if not o:
         raise HTTPException(404, "Üretim emri bulunamadı")
     o["operations"] = conn.execute(
-        """select v.id, v.seq, v.name, v.planned_minutes, v.actual_minutes, v.done_at, du.full_name as done_by_name,
+        """select v.id, v.seq, v.name, v.planned_minutes, v.actual_minutes, v.machine_rate, v.done_at, du.full_name as done_by_name,
                   coalesce(w.workers, '{}') as running_by,
                   exists (select 1 from public.production_time_logs l
                            where l.op_id = v.id and l.ended_at is null and l.user_id = %s) as mine
@@ -149,13 +159,35 @@ def _order(conn, order_id: UUID, ctx: TenantCtx) -> dict:
             where x.order_id = %s order by l.started_at desc""", [order_id]).fetchall()
     o["materials"] = conn.execute(
         """select m.part_id, p.name, p.part_no, p.unit, pc.is_serialized, m.planned_qty, m.actual_qty, m.reason,
-                  m.unit_cost, m.stock_moved, coalesce(st.qty, 0) as in_stock, coalesce(st.sites, '[]') as stock_sites
+                  m.unit_cost, m.stock_moved, coalesce(st.qty, 0) as in_stock, coalesce(st.sites, '[]') as stock_sites,
+                  st.avg_cost
              from public.production_order_materials m
              join public.parts p on p.id = m.part_id
              join public.part_categories pc on pc.id = p.category_id
              left join public.v_stock_totals st on st.part_id = m.part_id and st.tenant_id = m.tenant_id
             where m.order_id = %s order by m.id""", [order_id]).fetchall()
+    o["planned_cost"] = _planned_cost(conn, o, ctx)
     return o
+
+
+def _planned_cost(conn, o: dict, ctx: TenantCtx) -> dict:
+    """Plana göre maliyet: planlanan malzeme ve süre, emrin oranlarıyla.
+
+    Tamamlanmış emirde tüketim anındaki birim maliyet ve o günkü işçilik oranı kullanılır
+    (gerçekleşenle aynı fiyat: fark yalnızca miktar ve süreden gelir); açık emirde stok
+    ortalama maliyeti ve bugünkü oran.
+    """
+    rate = o["labor_rate"] if o["labor_rate"] is not None else Decimal(str(thresholds(conn, ctx.tenant_id)["labor_cost_per_hour"]))
+    material = sum((m["planned_qty"] * (m["unit_cost"] if m["unit_cost"] is not None else m["avg_cost"] or 0)
+                    for m in o["materials"]), Decimal(0))
+    hours = [((op["planned_minutes"] or 0) / Decimal(60), op["machine_rate"] or 0) for op in o["operations"]]
+    labor = sum((h for h, _ in hours), Decimal(0)) * rate
+    machine = sum((h * r for h, r in hours), Decimal(0))
+    q = Decimal("0.01")
+    out = {"labor_rate": rate, "material": material.quantize(q), "labor": labor.quantize(q), "machine": machine.quantize(q)}
+    out["total"] = out["material"] + out["labor"] + out["machine"]
+    out["unit"] = (out["total"] / o["qty"]).quantize(q)
+    return out
 
 
 def _op(conn, order_id: UUID, op_id: UUID, tenant_id: UUID) -> None:
@@ -193,10 +225,10 @@ def order_create(body: OrderIn, ctx: TenantCtx, request: Request):
             [ctx.tenant_id, ctx.tenant_id, body.part_id, body.qty, body.due_at, body.notes, ctx.user_id]).fetchone()
         for r in route:
             conn.execute(
-                """insert into public.production_order_ops (tenant_id, order_id, seq, name, planned_minutes)
-                   values (%s, %s, %s, %s, %s)""",
+                """insert into public.production_order_ops (tenant_id, order_id, seq, name, planned_minutes, machine_rate)
+                   values (%s, %s, %s, %s, %s, %s)""",
                 [ctx.tenant_id, row["id"], r["seq"], r["name"],
-                 r["planned_minutes"] * body.qty if r["planned_minutes"] is not None else None])
+                 r["planned_minutes"] * body.qty if r["planned_minutes"] is not None else None, r["machine_rate"]])
         conn.execute(
             """insert into public.production_order_materials (tenant_id, order_id, part_id, planned_qty)
                select %s, %s, l.part_id, l.qty * %s from public.bom_lines l where l.bom_id = %s order by l.id""",
@@ -275,6 +307,8 @@ def operations_report(ctx: TenantCtx, months: int = Query(12, ge=1, le=60)):
                 where v.tenant_id = %s and o.status <> 'cancelled'
                   and v.done_at >= now() - make_interval(months => %s)
                 group by v.name order by sum(v.actual_minutes) desc, v.name""", [ctx.tenant_id, months]).fetchall()
+
+
 # ---------- Fire ve hurda raporu ----------
 @router.get("/reports/scrap", summary="Fire ve hurda: ürün bazında hurda, malzeme bazında plan / gerçekleşen, sebep dağılımı")
 def scrap_report(ctx: TenantCtx, months: int = Query(12, ge=1, le=60)):
@@ -312,3 +346,23 @@ def scrap_report(ctx: TenantCtx, months: int = Query(12, ge=1, le=60)):
                   ) x
                  group by x.reason order by sum(x.scrap) + sum(x.waste) desc, x.reason""", q).fetchall()
         return {"months": months, "products": products, "materials": materials, "reasons": reasons}
+
+
+# ---------- Üretim maliyeti raporu ----------
+@router.get("/reports/cost", summary="Üretim maliyeti: ürün bazında malzeme, işçilik, makine ve birim maliyet (tamamlanan emirler)")
+def cost_report(ctx: TenantCtx, months: int = Query(12, ge=1, le=60)):
+    with ctx.tx() as conn:
+        products = conn.execute(
+            """select o.part_id, p.name, p.part_no, p.unit, count(*) as order_count,
+                      sum(o.good_qty) as good_qty, sum(o.scrap_qty) as scrap_qty,
+                      sum(o.material_cost) as material_cost, sum(o.labor_cost) as labor_cost, sum(o.machine_cost) as machine_cost,
+                      sum(o.material_cost + o.labor_cost + o.machine_cost) as total_cost,
+                      -- Birim maliyet: toplam / sağlam ürün (hurdanın maliyeti sağlam ürüne biner)
+                      round(sum(o.material_cost + o.labor_cost + o.machine_cost) / nullif(sum(o.good_qty), 0), 2) as unit_cost
+                 from public.production_orders o join public.parts p on p.id = o.part_id
+                where o.tenant_id = %s and o.status = 'done' and o.material_cost is not null
+                  and o.completed_at >= now() - make_interval(months => %s)
+                group by o.part_id, p.name, p.part_no, p.unit
+                order by sum(o.material_cost + o.labor_cost + o.machine_cost) desc, p.name""", [ctx.tenant_id, months]).fetchall()
+        return {"months": months, "labor_cost_per_hour": thresholds(conn, ctx.tenant_id)["labor_cost_per_hour"],
+                "products": products}

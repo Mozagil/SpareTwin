@@ -25,6 +25,7 @@ class Thresholds(BaseModel):
     maint_warn_hours: float = Field(DEFAULT_THRESHOLDS["maint_warn_hours"], description="Sıradaki bakıma bu kadar saat kala 'yaklaşıyor'")
     maint_warn_days: float = Field(DEFAULT_THRESHOLDS["maint_warn_days"], description="Takvim bazlı bakıma bu kadar gün kala 'yaklaşıyor'")
     downtime_cost_per_hour: float = Field(DEFAULT_THRESHOLDS["downtime_cost_per_hour"], description="Arızalı makinenin saat başı kaybı; TCO raporunda duruş maliyeti")
+    labor_cost_per_hour: float = Field(DEFAULT_THRESHOLDS["labor_cost_per_hour"], description="Üretimde işçilik saat maliyeti; üretim emrinin işçilik maliyeti")
 
     @model_validator(mode="after")
     def _ranges(self):

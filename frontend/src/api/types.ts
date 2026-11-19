@@ -91,6 +91,62 @@ export interface AssetDetail extends AssetSummary {
   model_id: string | null;
   positions: Position[];
   schematic_image: Img | null;
+  /** Bekleyen devir; yalnızca yönetici ve üstüne döner */
+  transfer: PendingTransfer | null;
+}
+
+// ---------- Makine devri ----------
+export interface PendingTransfer {
+  id: string;
+  code: string;
+  note: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export type TransferStatus = "pending" | "accepted" | "cancelled" | "expired";
+
+export interface TransferRow {
+  id: string;
+  /** Yalnızca devralınanlarda ve bekleyenlerde dolu; devredilen makine artık görünmez */
+  asset_id: string | null;
+  asset_code: string;
+  serial_no: string | null;
+  model_name: string | null;
+  part_count: number;
+  note: string | null;
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  direction: "out" | "in";
+  status: TransferStatus;
+  /** Karşı firma: devredilende alıcı, devralınanda devreden */
+  counterparty: string | null;
+  code: string | null;
+}
+
+export interface TransferPreview {
+  code: string;
+  from_tenant_name: string;
+  note: string | null;
+  expires_at: string;
+  asset_code: string;
+  serial_no: string | null;
+  year: number | null;
+  meter_hours: number;
+  qr_code: string | null;
+  model_name: string | null;
+  /** Alıcının filosunda aynı kodlu makine var: başka kod girilmeli */
+  code_taken: boolean;
+  parts: { position: string; name: string; serial_no: string | null; category_code: string; category_name: string; hours_total: number }[];
+}
+
+export interface TransferAccepted {
+  transfer_id: string;
+  asset_id: string;
+  asset_code: string;
+  part_count: number;
+  from_tenant_name: string;
 }
 
 export interface PartListItem {
@@ -353,6 +409,8 @@ export interface RouteOperation {
   name: string;
   /** 1 birim ürün için; null = bilinmiyor */
   planned_minutes: number | null;
+  /** Makine saat maliyeti; null = bu işlemde makine maliyeti yok */
+  machine_rate: number | null;
 }
 export type ProdStatus = "open" | "in_progress" | "done" | "cancelled";
 export interface ProductionOrderRow {
@@ -384,6 +442,13 @@ export interface ProductionOrderRow {
   scrap_reason: ScrapReason | null;
   site_id: string | null;
   site_name: string | null;
+  /** Maliyet emir tamamlanınca dolar; toplam = malzeme + işçilik + makine, birim = toplam / sağlam ürün */
+  labor_rate: number | null;
+  material_cost: number | null;
+  labor_cost: number | null;
+  machine_cost: number | null;
+  total_cost: number | null;
+  unit_cost: number | null;
 }
 export type ScrapReason = "material" | "workmanship" | "machine" | "setup" | "dimension" | "damage" | "other";
 export interface ProductionMaterial {
@@ -408,6 +473,7 @@ export interface ProductionOp {
   name: string;
   planned_minutes: number | null;
   actual_minutes: number;
+  machine_rate: number | null;
   done_at: string | null;
   done_by_name: string | null;
   /** Şu an bu işlemde çalışanlar */
@@ -418,6 +484,8 @@ export interface ProductionOp {
 export interface ProductionOrder extends ProductionOrderRow {
   operations: ProductionOp[];
   materials: ProductionMaterial[];
+  /** Planlanan malzeme ve süre, emrin oranlarıyla */
+  planned_cost: { labor_rate: number; material: number; labor: number; machine: number; total: number; unit: number };
   logs: { id: number; operation: string; user_name: string; started_at: string; ended_at: string | null; minutes: number }[];
 }
 export interface OperationReportRow {
@@ -437,6 +505,14 @@ export interface ScrapReport {
   materials: { part_id: string; name: string; part_no: string | null; unit: string; order_count: number;
                planned_qty: number; actual_qty: number; waste_cost: number | null }[];
   reasons: { reason: ScrapReason; scrap_orders: number; waste_lines: number; waste_cost: number | null }[];
+}
+
+export interface CostReport {
+  months: number;
+  labor_cost_per_hour: number;
+  products: { part_id: string; name: string; part_no: string | null; unit: string; order_count: number;
+              good_qty: number; scrap_qty: number; material_cost: number; labor_cost: number; machine_cost: number;
+              total_cost: number; unit_cost: number | null }[];
 }
 
 export interface CatalogPart {
@@ -659,6 +735,7 @@ export interface Thresholds {
   maint_warn_hours: number;
   maint_warn_days: number;
   downtime_cost_per_hour: number;
+  labor_cost_per_hour: number;
 }
 export interface Organization {
   id: string;

@@ -600,8 +600,17 @@ input[aria-invalid="true"] { border-color: var(--critical); }
 .build-head .field { width: 200px; }
 .route-list { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
 .route-rows { display: grid; gap: 8px; }
-.route-row { display: grid; grid-template-columns: 22px minmax(0, 3fr) minmax(90px, 1fr) auto auto; gap: 8px; align-items: center; }
+.route-row { display: grid; grid-template-columns: 22px minmax(0, 3fr) minmax(80px, 1fr) minmax(100px, 1fr) auto auto; gap: 8px; align-items: center; }
 .route-seq { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.route-head { color: var(--muted); font-size: 12.5px; }
+.route-head span:first-child { grid-column: 2; }
+/* Telefonda işlem adı kendi satırında; süre ve makine oranı altında */
+@media (max-width: 640px) {
+  .route-head { display: none; }
+  .route-row { grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr) auto auto; }
+  .route-row input:nth-of-type(1) { grid-column: 2 / -1; }
+  .route-row input:nth-of-type(2) { grid-column: 2; }
+}
 .op-actions { display: inline-flex; gap: 6px; }
 .prod-logs { margin-top: 14px; }
 .prod-mats, .finish-form { margin-top: 14px; }
@@ -611,6 +620,13 @@ input[aria-invalid="true"] { border-color: var(--critical); }
 .finish-reason select { max-width: 200px; }
 .prod-reports { gap: 16px; }
 .scrap-report .mini-head { margin-top: 10px; }
+.prod-cost { margin-top: 14px; }
+.prod-cost .mini-head { margin-bottom: 8px; }
+.cost-bar { display: flex; height: 8px; min-width: 120px; border-radius: 4px; overflow: hidden; background: var(--surface-2); }
+.cost-bar i { display: block; height: 100%; }
+.cost-mat { background: var(--brand); } .cost-lab { background: color-mix(in srgb, var(--brand) 45%, transparent); } .cost-mac { background: var(--unknown); }
+.cost-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 10px; vertical-align: baseline; }
+.cost-legend i:first-child { margin-left: 0; }
 /* Telefonda işlem satırı kart olur: Başla / Durdur düğmeleri yana kaymadan görünür */
 @media (max-width: 640px) {
   .table.op-table thead { display: none; }
@@ -632,3 +648,24 @@ input[aria-invalid="true"] { border-color: var(--critical); }
 .op-legend { margin-top: 10px; }
 .op-legend i { display: inline-block; width: 18px; vertical-align: middle; margin: 0 4px 0 8px; }
 .op-legend i:first-child { margin-left: 0; }
+
+/* ---------- Makine devri ---------- */
+.transfer-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px 20px; align-items: center;
+                   background: color-mix(in srgb, var(--watch) 14%, transparent); border-left: 4px solid var(--watch);
+                   padding: 12px 16px; border-radius: 6px; margin-bottom: 16px; }
+.transfer-banner p { margin: 2px 0 0; }
+.transfer-code { font-size: 20px; font-weight: 600; letter-spacing: .04em; word-break: normal; white-space: nowrap; }
+.transfer-code-small { margin-top: 4px; }
+.transfer-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.transfer-lookup { display: grid; grid-template-columns: minmax(0, 360px) max-content; gap: 12px; align-items: start; }
+.transfer-lookup .btn { margin-top: 24px; width: auto; justify-self: start; }
+.transfer-lookup input.mono { font-size: 15px; text-transform: uppercase; }
+.transfer-preview { border: 1px solid var(--line); border-radius: var(--radius-s); padding: 16px; }
+.transfer-preview .facts { margin: 4px 0; }
+.transfer-preview .fact dd { font-size: 18px; }
+@media (max-width: 720px) {
+  .transfer-banner { grid-template-columns: 1fr; }
+  .transfer-actions { justify-content: flex-start; }
+  .transfer-lookup { grid-template-columns: 1fr; }
+  .transfer-lookup .btn { margin-top: 0; width: 100%; justify-self: stretch; }
+}

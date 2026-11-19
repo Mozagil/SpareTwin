@@ -98,6 +98,12 @@ def get_asset(asset_id: UUID, ctx: TenantCtx, storage: AppStorage):
             fits.setdefault(r.pop("position_code"), []).append(r)
         for p in asset["positions"]:
             p["fits"] = fits.get(p["code"], [])
+        # Bekleyen devir (0024): satırı yalnızca yönetici ve üstü görür (RLS), kod da onlara döner
+        asset["transfer"] = conn.execute(
+            """select id, code, note, created_at, expires_at from public.asset_transfers
+                where asset_id = %s and tenant_id = %s and status = 'pending' and expires_at > now()""",
+            [asset_id, ctx.tenant_id],
+        ).fetchone()
         return asset
 
 

@@ -1,7 +1,7 @@
 """Firma ayarları: tenants.settings (jsonb) içindeki eşikler.
 
 Varsayılanlar burada tek yerde durur; aynı değerler SQL görünümlerinde
-(0013, 0014, 0015, 0016, 0017) coalesce ile tekrarlanır. Birini değiştirirsen diğerini de değiştir.
+(0013, 0014, 0015, 0016, 0017, 0023) coalesce ile tekrarlanır. Birini değiştirirsen diğerini de değiştir.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ DEFAULT_THRESHOLDS: dict[str, float] = {
     "maint_warn_hours": 50,          # sıradaki bakıma bu kadar saat kala "yaklaşıyor"
     "maint_warn_days": 7,            # takvim bazlı bakıma bu kadar gün kala "yaklaşıyor"
     "downtime_cost_per_hour": 0,     # arızalı makinenin saat başı kaybı; TCO raporunda duruş maliyeti (0 = hesaplanmaz)
+    "labor_cost_per_hour": 0,        # üretimde işçilik saat maliyeti; üretim emrinin işçilik maliyeti (0 = hesaplanmaz)
 }
 
 THRESHOLD_LIMITS: dict[str, tuple[float, float]] = {
@@ -31,6 +32,7 @@ THRESHOLD_LIMITS: dict[str, tuple[float, float]] = {
     "maint_warn_hours": (1, 2000),
     "maint_warn_days": (1, 90),
     "downtime_cost_per_hour": (0, 100000),
+    "labor_cost_per_hour": (0, 100000),
 }
 
 

@@ -18,6 +18,8 @@ export const THRESHOLD_FIELDS: { key: keyof Thresholds; label: string; hint: str
     hint: "Takvim bazlı bakıma bu kadar gün kala 'yaklaşıyor' olur" },
   { key: "downtime_cost_per_hour", label: "Duruş saat maliyeti", unit: "$/saat", min: 0, max: 100000,
     hint: "Arızalı makinenin saat başı kaybı. Maliyet raporunda duruş süresi bu değerle çarpılır; 0 ise duruş maliyeti hesaplanmaz" },
+  { key: "labor_cost_per_hour", label: "İşçilik saat maliyeti", unit: "$/saat", min: 0, max: 100000,
+    hint: "Üretimde bir kişinin saat başı maliyeti. Üretim emrinde tutulan süre bu değerle çarpılır; 0 ise işçilik maliyeti hesaplanmaz" },
 ];
 
 export type ThresholdForm = Record<keyof Thresholds, string>;
@@ -31,6 +33,7 @@ export const toForm = (t: Thresholds): ThresholdForm => ({
   maint_warn_hours: String(t.maint_warn_hours),
   maint_warn_days: String(t.maint_warn_days),
   downtime_cost_per_hour: String(t.downtime_cost_per_hour),
+  labor_cost_per_hour: String(t.labor_cost_per_hour),
 });
 
 const parse = (s: string) => {

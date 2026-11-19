@@ -14,7 +14,8 @@ def test_varsayilan_esikler(client, manager):
     o = client.get("/organization", headers=manager).json()
     assert o["name"].startswith("Demo") and o["currency"] == "USD"
     assert o["thresholds"] == {"critical_pct": 20, "watch_pct": 40, "rim_due_soon_pct": 90, "inspection_interval_days": 30, "need_horizon_hours": 500,
-                               "maint_warn_hours": 50, "maint_warn_days": 7, "downtime_cost_per_hour": 150}
+                               "maint_warn_hours": 50, "maint_warn_days": 7, "downtime_cost_per_hour": 150,
+                               "labor_cost_per_hour": 0}
     assert o["defaults"] == {**o["thresholds"], "downtime_cost_per_hour": 0}  # demo firmada duruş saat maliyeti girilmiş
 
 
