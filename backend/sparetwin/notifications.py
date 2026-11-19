@@ -28,6 +28,7 @@ def _n(v: Any) -> str:
 
 def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    stale_days = int(thresholds(conn, tenant_id)["inspection_interval_days"])  # firma ayarı (0013)
 
     # 1) Kritik parçalar
     for p in conn.execute(
@@ -61,15 +62,19 @@ def collect(conn: psycopg.Connection, tenant_id: UUID) -> list[dict[str, Any]]:
             "body": f"Son muayeneden bu yana {_n(r['hours_since_ndt'])} / {_n(r['ndt_interval_hours'])} saat",
             "link": {"type": "rim", "id": str(r["id"])}, "at": None})
 
-    # 3) Kritik seviyenin altındaki stok
+    # 3) Kritik seviyenin altındaki stok (siparişte olan varsa söylenir; anahtar değişir)
     for s in conn.execute(
-        """select part_id as id, name, min_stock, qty as in_stock, unit from public.v_stock_totals
-            where tenant_id = %s and min_stock > 0 and below_min""", [tenant_id]).fetchall():
+        """select st.part_id as id, st.name, st.min_stock, st.qty as in_stock, st.unit, coalesce(oo.on_order, 0) as on_order
+             from public.v_stock_totals st
+             left join public.v_purchase_on_order oo on oo.tenant_id = st.tenant_id and oo.part_id = st.part_id
+            where st.tenant_id = %s and st.min_stock > 0 and st.below_min""", [tenant_id]).fetchall():
         qty = f"{float(s['in_stock']):g}".replace(".", ",")
+        on_order = f"{float(s['on_order']):g}".replace(".", ",")
         out.append({
-            "key": f"stock:{s['id']}:{s['in_stock']}", "kind": "stock_low", "severity": "watch",
+            "key": f"stock:{s['id']}:{s['in_stock']}:{s['on_order']}", "kind": "stock_low", "severity": "watch",
             "title": f"{s['name']} stoğu düşük",
-            "body": f"Depoda {qty} {s['unit']}, kritik seviye {s['min_stock']}",
+            "body": f"Depoda {qty} {s['unit']}, kritik seviye {s['min_stock']}"
+                    + (f", siparişte {on_order} {s['unit']}" if float(s["on_order"]) > 0 else ""),
             "link": {"type": "stock", "id": str(s["id"])}, "at": None})
 
     # 4) Uzun süredir kontrol edilmeyen makineler (firma ayarı)

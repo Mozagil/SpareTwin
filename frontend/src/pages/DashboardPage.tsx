@@ -7,6 +7,8 @@ import { ReportButton } from "../components/ReportButton";
 import { PartTwin } from "../components/PartActions";
 import { Empty, ErrorNote, Loading, Panel } from "../components/ui";
 import { LAYOUT_LABEL, categoryLabel, num, pct, usd } from "../lib/format";
+import { needWhy } from "../lib/purchasing";
+import { dueWhy } from "../lib/maintenance";
 
 function FleetStrip({ assets, selected, onSelect }: {
   assets: AssetSummary[]; selected: string | null; onSelect: (id: string) => void;
@@ -53,7 +55,8 @@ function FleetStrip({ assets, selected, onSelect }: {
 function Priorities() {
   const crit = useParts({ band: "critical", status: "installed" });
   const watch = useParts({ band: "watch", status: "installed" });
-  const catalog = useCatalogParts();
+  const needs = useNeeds();
+  const due = useMaintenanceDue();
   const navigate = useNavigate();
 
   const items = useMemo(() => {
@@ -74,18 +77,32 @@ function Priorities() {
         to: `/parca/${p.id}`,
         action: p.category_code === "tire" ? "Değişim planla" : "İncele",
       }));
-    const low = (catalog.data ?? [])
-      .filter((c) => c.min_stock > 0 && c.in_stock < c.min_stock)
-      .map((c) => ({
-        key: `stock-${c.id}`,
+    // Sipariş ihtiyacı: yaklaşan değişim + kritik seviye, stoktaki ve siparişteki düşülmüş (Satınalma)
+    const low = (needs.data ?? [])
+      .filter((n) => Number(n.need) > 0)
+      .map((n) => ({
+        key: `need-${n.part_id}`,
         band: "watch" as const,
-        what: `${c.name} stok seviyesi`,
-        why: `Depoda ${num(c.in_stock)} ${c.unit ?? "adet"} var, kritik seviye ${c.min_stock}.`,
-        to: `/stok?kalem=${c.id}`,
-        action: "Stoğa git",
+        what: `${n.name}: ${num(Number(n.need))} ${n.unit} sipariş ihtiyacı`,
+        why: needWhy(n),
+        to: `/satinalma?yeni=${n.part_id}`,
+        action: "Talep aç",
       }));
-    return [...rows.slice(0, 2), ...low.slice(0, 2), ...rows.slice(2)].slice(0, 7);
-  }, [crit.data, watch.data, catalog.data]);
+    // Sıradaki bakımlar: gecikenler kritik, yaklaşanlar izleme; açık emri olan zaten listede
+    const maint = (due.data ?? [])
+      .filter((d) => d.state !== "ok" && !d.open_work_order_id)
+      .map((d) => ({
+        key: `maint-${d.plan_id}-${d.asset_id}`,
+        band: (d.state === "overdue" ? "critical" : "watch") as "critical" | "watch",
+        what: `${d.asset_code} · ${d.name} ${d.state === "overdue" ? "gecikti" : "yaklaşıyor"}`,
+        why: dueWhy(d),
+        to: `/bakim?yeni=1&makine=${d.asset_id}&plan=${d.plan_id}`,
+        action: "Emir aç",
+      }));
+    const overdue = maint.filter((m) => m.band === "critical");
+    const soon = maint.filter((m) => m.band === "watch");
+    return [...overdue, ...rows.slice(0, 2), ...soon.slice(0, 1), ...low.slice(0, 2), ...rows.slice(2)].slice(0, 7);
+  }, [crit.data, watch.data, needs.data, due.data]);
 
   return (
     <Panel className="a-prio" title="Öncelikli işler" sub="Kalan ömre göre sıralı; en acil olan en üstte">
@@ -130,6 +147,8 @@ function TireCostPanel() {
 
 export function DashboardPage() {
   const assets = useAssets();
+  // Renk açıklaması firmanın eşiklerini gösterir (Ayarlar'dan değişir); yüklenene kadar varsayılanlar
+  const th = useOrganization().data?.thresholds ?? { critical_pct: 20, watch_pct: 40 };
   const [assetId, setAssetId] = useState<string | null>(null);
   const mods = useModules();
   const [showAllState, setShowAll] = useState(false);
@@ -184,12 +203,12 @@ export function DashboardPage() {
           {asset.isLoading || !a ? <Loading /> : (
             <>
               <div className="schematic-wrap">
-                <MachineSchematic layout={a.layout} positions={a.positions} selected={slot?.code} showAll={showAll} onSelect={setSlot} />
+                <MachineSchematic layout={a.layout} image={a.schematic_image?.url} positions={a.positions} selected={slot?.code} showAll={showAll} onSelect={setSlot} />
               </div>
               <div className="legend">
-                <span style={{ ["--c" as string]: "var(--ok)" }}>%40 üzeri</span>
-                <span style={{ ["--c" as string]: "var(--watch)" }}>%20–40 takipte</span>
-                <span style={{ ["--c" as string]: "var(--critical)" }}>%20 altı kritik</span>
+                <span style={{ ["--c" as string]: "var(--ok)" }}>%{num(th.watch_pct)} üzeri</span>
+                <span style={{ ["--c" as string]: "var(--watch)" }}>%{num(th.critical_pct)}–{num(th.watch_pct)} takipte</span>
+                <span style={{ ["--c" as string]: "var(--critical)" }}>%{num(th.critical_pct)} altı kritik</span>
                 <span style={{ ["--c" as string]: "var(--unknown)" }}>Ölçüm bekliyor</span>
               </div>
             </>

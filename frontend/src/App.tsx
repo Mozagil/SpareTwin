@@ -8,10 +8,14 @@ import { InspectionPage } from "./pages/InspectionPage";
 import { InspectionStartPage } from "./pages/InspectionStartPage";
 import { LabelsPage } from "./pages/LabelsPage";
 import { LoginPage, TenantPicker } from "./pages/LoginPage";
+import { MaintenancePage } from "./pages/MaintenancePage";
 import { PartPage } from "./pages/PartPage";
 import { PartsPage } from "./pages/PartsPage";
+import { ProductionPage } from "./pages/ProductionPage";
+import { PurchasingPage } from "./pages/PurchasingPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { RimsPage } from "./pages/RimsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { StockPage } from "./pages/StockPage";
 import { PurchasingPage } from "./pages/PurchasingPage";
 import { PurchaseOrderPage } from "./pages/PurchaseOrderPage";
@@ -44,6 +48,7 @@ export function App() {
           <Route path="ayarlar" element={<SettingsPage />} />
           <Route path="kontrol" element={<InspectionStartPage />} />
           <Route path="kontrol/:id" element={<InspectionPage />} />
+          <Route path="ayarlar" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

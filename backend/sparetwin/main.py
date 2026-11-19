@@ -91,5 +91,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
               media.router, labels.router, imports.router, notifications.router, stock.router, purchasing.router,
               operations.router, costs.router, settings_api.router):
         app.include_router(r)
+    audit.install(app)  # durum değiştiren her isteği denetim kaydına yazar
     return app
 

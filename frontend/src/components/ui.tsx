@@ -50,8 +50,8 @@ export function Empty({ children }: { children: ReactNode }) {
 }
 
 /** Erişilebilir modal: Escape ile kapanır, açılınca ilk alana odaklanır. */
-export function Modal({ title, onClose, children, footer }: {
-  title: string; onClose: () => void; children: ReactNode; footer?: ReactNode;
+export function Modal({ title, onClose, children, footer, wide }: {
+  title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -66,7 +66,7 @@ export function Modal({ title, onClose, children, footer }: {
   }, [onClose]);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title} ref={ref}>
+      <div className={wide ? "modal modal-wide" : "modal"} role="dialog" aria-modal="true" aria-label={title} ref={ref}>
         <div className="modal-head">
           <h2>{title}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Kapat">×</button>

@@ -2,7 +2,7 @@
 burada yalnızca giriş doğrulama ve firma kontrolü var."""
 
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, get_args
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -13,6 +13,9 @@ from .deps import TenantCtx
 router = APIRouter(tags=["Yaşam döngüsü"])
 
 NextStatus = Literal["in_stock", "in_repair", "refurbishing", "quarantine", "scrapped"]
+# Sökme sebebi sabit listeden seçilir: serbest metin aynı sebebi birkaç ada böler, raporu bozar (K-019)
+RemoveReason = Literal["worn_out", "cut", "impact", "separation", "pressure_loss", "leak", "rotation", "other"]
+REMOVE_REASONS: tuple[str, ...] = get_args(RemoveReason)
 EventType = Literal["received", "inspected", "repaired", "refurbished", "rotated", "transferred", "scrapped", "note"]
 
 
@@ -35,7 +38,7 @@ class MoveIn(BaseModel):
 
 
 class RemoveIn(BaseModel):
-    reason: str = Field(min_length=1, max_length=40, description="worn_out, cut, impact, leak, rotation...")
+    reason: RemoveReason = Field(description="Sabit listeden: aşınma, kesik, darbe, ayrışma, basınç kaybı, sızıntı, rotasyon, diğer")
     next_status: NextStatus = "in_stock"
     hours: Decimal | None = Field(None, ge=0)
     cost: Decimal | None = Field(None, ge=0)

@@ -110,7 +110,7 @@ def test_stok_uyarisi_bildirimi_ve_katalog(client, manager):
     titles = [i["title"] for i in client.get("/notifications", headers=manager).json()["items"] if i["kind"] == "stock_low"]
     assert "L220H kaldırma silindiri keçe takımı stoğu düşük" in titles
     keçe = next(i for i in client.get("/notifications", headers=manager).json()["items"] if "keçe" in i["title"])
-    assert keçe["body"] == "Depoda 1 takım, kritik seviye 2"
+    assert keçe["body"] == "Depoda 1 takım, kritik seviye 2, siparişte 1 takım"  # demo siparişi SA-…-0001
     cat = {c["name"]: c for c in client.get("/catalog/parts", headers=manager).json()}
     assert float(cat["Motor yağı 15W-40"]["in_stock"]) > 0 and cat["Motor yağı 15W-40"]["unit"] == "litre"
     assert cat["Motor yağı 15W-40"]["is_serialized"] is False

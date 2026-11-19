@@ -41,6 +41,10 @@ export const CATEGORY_LABEL: Record<string, string> = {
   seal_kit: "Keçe / conta takımı",
 };
 export const categoryLabel = (code: string) => CATEGORY_LABEL[code] ?? code;
+/** Firmanın kendi parça tipleri API'den gelir; adları ortak etiket tablosuna eklenir. */
+export function registerCategories(rows: { code: string; name: string }[]) {
+  for (const r of rows) CATEGORY_LABEL[r.code] = r.name;
+}
 
 export const EVENT_LABEL: Record<string, string> = {
   received: "Depoya alındı",
@@ -80,6 +84,8 @@ export const ANGLE_LABEL: Record<string, string> = {
   tread: "Taban",
   sidewall: "Yanak",
   damage_closeup: "Hasar (yakın çekim)",
+  overall: "Genel görünüm",
+  nameplate: "Etiket / plaka",
 };
 export const angleLabel = (a: string | null) => (a ? (ANGLE_LABEL[a] ?? a) : "Fotoğraf");
 

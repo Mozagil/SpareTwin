@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from ..db import user_tx
@@ -76,7 +76,8 @@ def _issue(settings, conn, user_id: UUID, user_agent: str | None) -> TokenOut:
 
 
 @router.post("/login", response_model=TokenOut, summary="E-posta ve parola ile giriş")
-def login(body: LoginIn, settings: AppSettings, user_agent: Annotated[str | None, Header()] = None):
+def login(body: LoginIn, settings: AppSettings, request: Request,
+          user_agent: Annotated[str | None, Header()] = None):
     with user_tx(None) as conn:
         row = conn.execute(
             "select id, password_hash, is_active from app.auth_find_user(%s)", [body.email]
@@ -84,6 +85,7 @@ def login(body: LoginIn, settings: AppSettings, user_agent: Annotated[str | None
     ok = verify_password(body.password, row["password_hash"] if row else None)
     if not row or not ok or not row["is_active"]:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "E-posta veya parola hatalı")
+    request.state.user_id = row["id"]  # denetim kaydı: giriş
     with user_tx(row["id"]) as conn:
         conn.execute("select app.auth_touch_login(%s)", [row["id"]])
         return _issue(settings, conn, row["id"], user_agent)

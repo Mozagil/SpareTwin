@@ -21,6 +21,12 @@ export function InstallModal({ assetId, assetCode, position, rimSlot, onClose }:
   const [partId, setPartId] = useState("");
   const [rimId, setRimId] = useState("");
   const [notes, setNotes] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  // Model parça listesi bu yuva için kalem tanımlıyorsa önce yalnızca uyumlu stok gösterilir
+  const fits = new Set((position.fits ?? []).map((f) => f.part_id));
+  const all = stock.data ?? [];
+  const matching = all.filter((p) => fits.has(p.part_id));
+  const options = fits.size > 0 && !showAll ? matching : all;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -35,20 +41,29 @@ export function InstallModal({ assetId, assetCode, position, rimSlot, onClose }:
         </button>
       </>}>
       <form id="install-form" onSubmit={submit} className="form">
-        {stock.isLoading ? <Loading label="Stok yükleniyor" /> : (stock.data ?? []).length === 0 ? (
+        {stock.isLoading ? <Loading label="Stok yükleniyor" /> : all.length === 0 ? (
           <p className="muted">
             Stokta uygun {categoryLabel(position.category_code).toLocaleLowerCase("tr-TR")} yok.{" "}
             <Link to="/kayit?sekme=teslim">Parça teslim al</Link>
           </p>
         ) : (
-          <Field label="Stoktaki parça">
-            <select value={partId} onChange={(e) => setPartId(e.target.value)} required>
-              <option value="">Seçin</option>
-              {stock.data!.map((p) => (
-                <option key={p.id} value={p.id}>{p.part_name} · {p.serial_no ?? "seri no yok"}</option>
-              ))}
-            </select>
-          </Field>
+          <>
+            <Field label="Stoktaki parça"
+                   hint={fits.size > 0 ? `Parça listesine göre bu yuvaya uyan: ${position.fits!.map((f) => f.name).join(", ")}` : undefined}>
+              <select value={partId} onChange={(e) => setPartId(e.target.value)} required>
+                <option value="">{options.length === 0 ? "Uyumlu parça stokta yok" : "Seçin"}</option>
+                {options.map((p) => (
+                  <option key={p.id} value={p.id}>{p.part_name} · {p.serial_no ?? "seri no yok"}{fits.size > 0 && !fits.has(p.part_id) ? " · listede yok" : ""}</option>
+                ))}
+              </select>
+            </Field>
+            {fits.size > 0 && matching.length < all.length && (
+              <label className="inline-check">
+                <input type="checkbox" checked={showAll} onChange={(e) => { setShowAll(e.target.checked); setPartId(""); }} />
+                Parça listesinde olmayan {all.length - matching.length} parçayı da göster
+              </label>
+            )}
+          </>
         )}
         {offerRim && (
           <Field label="Jant (isteğe bağlı)"

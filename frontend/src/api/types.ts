@@ -79,6 +79,8 @@ export interface Position {
   band: Band;
   projected_hours_left: number | null;
   hours_total: number | null;
+  /** Model parça listesine göre bu yuvaya uyan katalog kalemleri (liste yoksa boş) */
+  fits?: { part_id: string; name: string; in_stock: number }[];
 }
 
 export interface AssetDetail extends AssetSummary {
@@ -90,10 +92,69 @@ export interface AssetDetail extends AssetSummary {
   template_id: string | null;
   model_id: string | null;
   positions: Position[];
+  schematic_image: Img | null;
+  /** Bekleyen devir; yalnızca yönetici ve üstüne döner */
+  transfer: PendingTransfer | null;
+}
+
+// ---------- Makine devri ----------
+export interface PendingTransfer {
+  id: string;
+  code: string;
+  note: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export type TransferStatus = "pending" | "accepted" | "cancelled" | "expired";
+
+export interface TransferRow {
+  id: string;
+  /** Yalnızca devralınanlarda ve bekleyenlerde dolu; devredilen makine artık görünmez */
+  asset_id: string | null;
+  asset_code: string;
+  serial_no: string | null;
+  model_name: string | null;
+  part_count: number;
+  note: string | null;
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  direction: "out" | "in";
+  status: TransferStatus;
+  /** Karşı firma: devredilende alıcı, devralınanda devreden */
+  counterparty: string | null;
+  code: string | null;
+}
+
+export interface TransferPreview {
+  code: string;
+  from_tenant_name: string;
+  note: string | null;
+  expires_at: string;
+  asset_code: string;
+  serial_no: string | null;
+  year: number | null;
+  meter_hours: number;
+  qr_code: string | null;
+  model_name: string | null;
+  /** Alıcının filosunda aynı kodlu makine var: başka kod girilmeli */
+  code_taken: boolean;
+  parts: { position: string; name: string; serial_no: string | null; category_code: string; category_name: string; hours_total: number }[];
+}
+
+export interface TransferAccepted {
+  transfer_id: string;
+  asset_id: string;
+  asset_code: string;
+  part_count: number;
+  from_tenant_name: string;
 }
 
 export interface PartListItem {
   id: string;
+  /** Katalog kalemi */
+  part_id: string;
   current_asset_id: string | null;
   asset_code: string | null;
   current_position: string | null;
@@ -209,7 +270,17 @@ export interface Template {
   name: string;
   layout: Layout;
   is_library: boolean;
-  positions: Pick<Position, "code" | "label" | "category_code" | "axle" | "x" | "y">[];
+  /** Bu şablonu kullanan firma makine modeli sayısı */
+  model_count: number;
+  positions: TemplatePosition[];
+  /** Şema arka planı: firmanın yüklediği makine resmi; yoksa hazır gövde çizimi */
+  image: Img | null;
+}
+export type TemplatePosition = Pick<Position, "code" | "label" | "category_code" | "axle" | "x" | "y">;
+export interface TemplateIn {
+  name: string;
+  layout: Layout;
+  positions: TemplatePosition[];
 }
 
 export interface AssetModel {
@@ -221,6 +292,229 @@ export interface AssetModel {
   template_name: string | null;
   layout: Layout | null;
   image: Img | null;
+  is_library: boolean;
+  /** Firmanın bu model için yazdığı parça listesi satır sayısı */
+  bom_count: number;
+}
+
+// ---------- Model parça listesi (BOM) ----------
+export interface BomLine {
+  id: number;
+  part_id: string;
+  name: string;
+  part_no: string | null;
+  manufacturer: string | null;
+  unit: Unit;
+  category_code: string;
+  is_serialized: boolean;
+  /** Boşsa makine geneli (sarf / yedek) */
+  position_code: string | null;
+  position_label: string | null;
+  qty: number;
+  notes: string | null;
+  in_stock: number;
+}
+export interface Bom {
+  model_id: string;
+  manufacturer: string;
+  model: string;
+  slots: { code: string; label: string; category_code: string }[];
+  lines: BomLine[];
+}
+export interface BomImportResult {
+  added: number;
+  existing: number;
+  errors: { row: number; message: string }[];
+}
+
+// ---------- Üretim: ürün ağacı ----------
+export interface ProductBomRow {
+  id: string;
+  part_id: string;
+  name: string | null;
+  part_no: string | null;
+  unit: string | null;
+  notes: string | null;
+  line_count: number;
+  /** 1 birim ürünün malzeme maliyeti (yapraklardan toplanır) */
+  material_cost: number;
+  /** Maliyeti bilinmeyen yaprak sayısı */
+  unknown_cost: number;
+  /** Eldeki stokla, satın almadan kaç birim üretilir */
+  can_build: number;
+  is_subassembly: boolean;
+}
+export interface ProductLine {
+  line_id: number;
+  part_id: string;
+  name: string | null;
+  part_no: string | null;
+  unit: string | null;
+  category_code: string | null;
+  notes: string | null;
+  /** Bir üst seviyenin 1 birimi için */
+  qty: number;
+  /** 1 birim ürün için (üst seviyelerle çarpılmış) */
+  total_qty: number;
+  in_stock: number;
+  unit_cost: number | null;
+  cost: number;
+  unknown_cost: number;
+  has_bom: boolean;
+  children: ProductLine[];
+}
+export interface ProductBom {
+  id: string;
+  part_id: string;
+  name: string | null;
+  part_no: string | null;
+  unit: string | null;
+  notes: string | null;
+  in_stock: number;
+  material_cost: number;
+  unknown_cost: number;
+  used_in: { part_id: string; name: string | null }[];
+  lines: ProductLine[];
+}
+export interface ProductBomImportResult extends BomImportResult {
+  boms_created: number;
+}
+
+export interface BuildableLine {
+  part_id: string;
+  name: string | null;
+  part_no: string | null;
+  unit: string | null;
+  /** Stoktan kullanılan hazır alt montaj */
+  has_bom: boolean;
+  required: number;
+  in_stock: number;
+  on_order: number;
+  /** Stoka göre açık */
+  shortage: number;
+  /** Yoldaki siparişler düşüldükten sonra alınacak */
+  to_buy: number;
+}
+export interface Buildable {
+  bom_id: string;
+  part_id: string;
+  qty: number;
+  can_build: number;
+  short_count: number;
+  lines: BuildableLine[];
+}
+
+// ---------- Üretim: rota, emir, işlem süresi ----------
+export interface RouteOperation {
+  id: number;
+  seq: number;
+  name: string;
+  /** 1 birim ürün için; null = bilinmiyor */
+  planned_minutes: number | null;
+  /** Makine saat maliyeti; null = bu işlemde makine maliyeti yok */
+  machine_rate: number | null;
+}
+export type ProdStatus = "open" | "in_progress" | "done" | "cancelled";
+export interface ProductionOrderRow {
+  id: string;
+  number: string;
+  part_id: string;
+  name: string;
+  part_no: string | null;
+  unit: string;
+  qty: number;
+  status: ProdStatus;
+  due_at: string | null;
+  notes: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  created_by_name: string | null;
+  late: boolean;
+  op_count: number;
+  ops_done: number;
+  /** Emrin tamamı için; planı olmayan işlemler sayılmaz */
+  planned_minutes: number | null;
+  actual_minutes: number;
+  /** Şu an süren zaman kaydı sayısı */
+  running: number;
+  /** Emir tamamlanınca dolar */
+  good_qty: number | null;
+  scrap_qty: number | null;
+  scrap_reason: ScrapReason | null;
+  site_id: string | null;
+  site_name: string | null;
+  /** Maliyet emir tamamlanınca dolar; toplam = malzeme + işçilik + makine, birim = toplam / sağlam ürün */
+  labor_rate: number | null;
+  material_cost: number | null;
+  labor_cost: number | null;
+  machine_cost: number | null;
+  total_cost: number | null;
+  unit_cost: number | null;
+}
+export type ScrapReason = "material" | "workmanship" | "machine" | "setup" | "dimension" | "damage" | "other";
+export interface ProductionMaterial {
+  part_id: string;
+  name: string;
+  part_no: string | null;
+  unit: string;
+  /** Seri numarasıyla izlenir: stok hareketi yapılmaz */
+  is_serialized: boolean;
+  planned_qty: number;
+  actual_qty: number | null;
+  /** Plandan fazla kullanımın sebebi */
+  reason: ScrapReason | null;
+  unit_cost: number | null;
+  stock_moved: boolean;
+  in_stock: number;
+  stock_sites: { site_id: string | null; qty: number }[];
+}
+export interface ProductionOp {
+  id: string;
+  seq: number;
+  name: string;
+  planned_minutes: number | null;
+  actual_minutes: number;
+  machine_rate: number | null;
+  done_at: string | null;
+  done_by_name: string | null;
+  /** Şu an bu işlemde çalışanlar */
+  running_by: string[];
+  /** Benim süren kaydım bu işlemde mi */
+  mine: boolean;
+}
+export interface ProductionOrder extends ProductionOrderRow {
+  operations: ProductionOp[];
+  materials: ProductionMaterial[];
+  /** Planlanan malzeme ve süre, emrin oranlarıyla */
+  planned_cost: { labor_rate: number; material: number; labor: number; machine: number; total: number; unit: number };
+  logs: { id: number; operation: string; user_name: string; started_at: string; ended_at: string | null; minutes: number }[];
+}
+export interface OperationReportRow {
+  name: string;
+  op_count: number;
+  order_count: number;
+  planned_minutes: number | null;
+  actual_minutes: number;
+  /** Planı olan işlemlerin gerçekleşen süresi (sapma bundan hesaplanır) */
+  actual_planned_minutes: number;
+}
+
+export interface ScrapReport {
+  months: number;
+  products: { part_id: string; name: string; part_no: string | null; unit: string; order_count: number;
+              planned_qty: number; good_qty: number; scrap_qty: number }[];
+  materials: { part_id: string; name: string; part_no: string | null; unit: string; order_count: number;
+               planned_qty: number; actual_qty: number; waste_cost: number | null }[];
+  reasons: { reason: ScrapReason; scrap_orders: number; waste_lines: number; waste_cost: number | null }[];
+}
+
+export interface CostReport {
+  months: number;
+  labor_cost_per_hour: number;
+  products: { part_id: string; name: string; part_no: string | null; unit: string; order_count: number;
+              good_qty: number; scrap_qty: number; material_cost: number; labor_cost: number; machine_cost: number;
+              total_cost: number; unit_cost: number | null }[];
 }
 
 export interface CatalogPart {
@@ -248,6 +542,83 @@ export interface Category {
   name: string;
   is_serialized: boolean;
   is_library: boolean;
+  measurement_profile: ProfileItem[];
+  required_photo_angles: string[];
+  /** Firmanın bu tipteki katalog kalemi sayısı */
+  part_count: number;
+}
+// ---------- Sökme sebepleri ----------
+export interface ReasonGroup {
+  count: number;
+  /** Sökme anındaki ortalama toplam çalışma saati */
+  avg_part_hours: number | null;
+  /** sebep kodu → adet, en sık önce */
+  reasons: Record<string, number>;
+}
+export interface RemovalReasons {
+  months: number;
+  from: string;
+  /** Rotasyon hariç sökme sayısı */
+  total: number;
+  rotations: number;
+  reasons: { reason: string; count: number; avg_part_hours: number | null }[];
+  by_part: (ReasonGroup & { part_id: string; name: string; manufacturer: string | null; category_code: string })[];
+  by_asset: (ReasonGroup & { asset_id: string; code: string })[];
+}
+
+// ---------- Tedarikçi karşılaştırma ----------
+export interface SupplierStat {
+  supplier_id: string;
+  supplier_name: string;
+  /** Verilmiş sipariş sayısı (açık olanlar dahil) */
+  order_count: number;
+  spend: number;
+  /** Tamamı teslim alınan sipariş kalemi sayısı; teslim süresi bunlardan ölçülür */
+  delivered: number;
+  avg_lead_days: number | null;
+  /** Beklenen tarihi olan teslimatlar ve bunlardan zamanında gelenler */
+  timed: number;
+  on_time: number;
+  short: number;
+}
+export interface PartSupplierStat extends SupplierStat {
+  qty: number;
+  avg_cost: number | null;
+  last_cost: number | null;
+  last_ordered_at: string;
+  cheapest: boolean;
+  fastest: boolean;
+}
+export interface SupplierSummary extends SupplierStat {
+  is_active: boolean;
+  lead_time_days: number | null;
+  part_count: number;
+}
+export interface ComparedPart {
+  part_id: string;
+  name: string;
+  manufacturer: string | null;
+  part_no: string | null;
+  unit: Unit;
+  category_code: string;
+  order_count: number;
+  spend: number;
+  suppliers: PartSupplierStat[];
+}
+export interface SupplierComparison {
+  months: number;
+  from: string;
+  /** Firmanın tüm tedarikçileri, kayıt sırasıyla (renk sırası) */
+  suppliers: SupplierSummary[];
+  parts: ComparedPart[];
+}
+
+export interface CategoryIn {
+  code?: string;
+  name: string;
+  is_serialized?: boolean;
+  measurement_profile: ProfileItem[];
+  required_photo_angles: string[];
 }
 
 // ---------- İnspeksiyon (mobil kontrol formu) ----------
@@ -343,6 +714,54 @@ export interface Notification {
   link: { type: "part" | "rim" | "stock" | "asset" | "po" | "maintenance"; id: string };
   at: string | null;
   read: boolean;
+  /** Ekip bazlı durum: üstlenildi / gizlendi / yok. Durum değişince kendiliğinden düşer. */
+  state: NotificationState | null;
+  state_by: string | null;
+  state_at: string | null;
+  note: string | null;
+}
+export type NotificationState = "acknowledged" | "dismissed";
+export interface NotificationList {
+  items: Notification[];
+  unread: number;
+  dismissed: number;
+}
+
+// ---------- Firma ayarları ve denetim kaydı ----------
+export interface Thresholds {
+  critical_pct: number;
+  watch_pct: number;
+  rim_due_soon_pct: number;
+  inspection_interval_days: number;
+  need_horizon_hours: number;
+  maint_warn_hours: number;
+  maint_warn_days: number;
+  downtime_cost_per_hour: number;
+  labor_cost_per_hour: number;
+}
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  currency: string;
+  thresholds: Thresholds;
+  defaults: Thresholds;
+}
+export interface AuditRow {
+  id: number;
+  at: string;
+  user_id: string | null;
+  user_email: string | null;
+  user_name: string | null;
+  method: string;
+  path: string;
+  status: number;
+  entity_type: string | null;
+  entity_id: string | null;
+  action: string | null;
+  detail: Record<string, unknown> | null;
+  ip: string | null;
 }
 
 // ---------- Stok ----------

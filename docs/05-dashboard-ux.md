@@ -13,7 +13,7 @@ Uygulama: `frontend/` (Codespace'te `make dev`, 5173 portu). İlk tasarım tasla
 | Filo şeridi | Hangi makinede sorun var? |
 | Makine şeması | Bu makinenin hangi parçası? |
 | Parça ikizi | Bu parçanın hikâyesi ne, ne kadar ömrü kaldı? |
-| Öncelikli işler | Bugün ne yapmalıyım? |
+| Öncelikli işler | Bugün ne yapmalıyım? (geciken/yaklaşan bakım, kritik parçalar, sipariş ihtiyacı) |
 | Saat başı maliyet | Hangi makine bize pahalıya patlıyor? |
 
 **Sayı değil karar.** "Diş 14 mm" yerine "bu hızla yaklaşık 539 saat kaldı". "Ömür %95" yerine "Bakım emri aç" düğmesi. Her uyarı bir eyleme bağlanır.
@@ -51,11 +51,12 @@ Durum renkleri her zaman metinle birlikte kullanılır (renk körlüğü): "Krit
 | Parçalar | `/parcalar` | 0 | ✅ | `GET /parts` (filtreler adres çubuğunda) |
 | Kayıt | `/kayit?sekme=…` | 0 | ✅ | teslim al, makine, katalog kalemi, makine modeli, saha |
 | Excel'den içe aktar | `/kayit?sekme=excel` | 1 | ✅ | `GET /import/tires/template`, `POST /import/tires?dry_run=` |
+| Makine devral | `/kayit?sekme=devral`, makine sayfası | 4 | ✅ | `POST /assets/{id}/transfer`, `GET /transfers/preview`, `POST /transfers/accept`, `POST /transfers/{id}/cancel`, `GET /transfers` |
 | QR etiketleri | `/etiketler` | 0 | ✅ | `POST /labels` → yazdırma sayfası yeni sekmede |
 | QR / seri no arama | üst çubuk | 0 | ✅ | `GET /qr/{kod}` |
 | Saha kontrolü (mobil) | `/kontrol`, `/kontrol/:id` | 1 | ✅ | `POST /inspections`, `GET .../sheet`, `PUT .../measurements`, `POST .../photos`, `POST .../complete` |
 | Jant uyumluluğu | `/jantlar` | 1 | ✅ | `GET /rims/compliance`, muayene kaydı `POST /parts/{id}/events` |
-| Bildirimler | Üst çubukta zil | 1 | ✅ | `GET /notifications`, `POST /notifications/read` |
+| Bildirimler | Üst çubukta zil | 1 | ✅ | `GET /notifications`, `POST /notifications/read`; ekip durumu (üstlen / gizle / geri al) `POST /notifications/state` |
 | PDF durum raporu | Filo ve makine sayfalarında "PDF rapor" düğmesi | 1 | ✅ | `GET /reports/fleet.pdf?asset_id=&site_id=` |
 | Stok | `/stok` | 2 | ✅ | `GET /stock`, `GET /stock/{id}/movements`, `POST /stock/movements`, `POST /stock/transfer` |
 | Satınalma | `/satinalma`, `/satinalma/:id` | 2 | ✅ | `GET /purchasing/suggestions`, `/suppliers`, `/purchase-orders` (+ `/order`, `/cancel`, `/receive`, satır işlemleri) |

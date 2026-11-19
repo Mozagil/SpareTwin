@@ -7,7 +7,7 @@
 -- Sabit kimlikler: test ederken URL'lerde aynı kalsın diye.
 insert into public.tenants (id, name, slug, plan, settings) values
   ('11111111-1111-1111-1111-111111111111', 'Demo Liman ve Maden A.Ş.', 'demo', 'pilot',
-   '{"currency":"USD","locale":"tr-TR"}');
+   '{"currency":"USD","locale":"tr-TR","thresholds":{"downtime_cost_per_hour":150}}');
 
 insert into public.sites (id, tenant_id, name, kind, city) values
   ('21111111-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Ambarlı liman sahası', 'liman', 'İstanbul'),
@@ -193,6 +193,49 @@ select pg_temp.seed_rim('LD-09', 'A1-L-J', 'TR25-0161', 3000,  150);
 select pg_temp.seed_rim('LD-09', 'A1-R-J', 'TR25-0162', 3000,  150);
 select pg_temp.seed_rim('LD-09', 'A2-L-J', 'TR25-0163', 3000,  150);
 select pg_temp.seed_rim('LD-09', 'A2-R-J', 'TR25-0164', 3000,  150);
+
+-- ---------- Sökülmüş parçalar (son 12 ay): sökme sebebi raporu dolu gelsin ----------
+-- Hurdaya ayrılmış ikizler; takma + sökme + hurda olaylarıyla. Alış maliyeti yazılmaz ki
+-- maliyet raporunun (TCO) sayıları yukarıdaki takılı parçalardan gelsin.
+create function pg_temp.seed_removed(
+  p_asset_code text, p_position text, p_part uuid, p_serial text, p_part_hours numeric, p_reason text, p_days_ago int
+) returns void language plpgsql as $$
+declare
+  t   uuid := '11111111-1111-1111-1111-111111111111';
+  a   public.assets;
+  pid uuid;
+  gone timestamptz := now() - make_interval(days => p_days_ago);
+begin
+  select * into a from public.assets where code = p_asset_code and tenant_id = t;
+  insert into public.part_items (tenant_id, part_id, serial_no, qr_code, status, site_id, hours_accumulated, acquired_at)
+  values (t, p_part, p_serial, 'ST-P-' || p_serial, 'scrapped', a.site_id, p_part_hours, (gone - interval '500 days')::date)
+  returning id into pid;
+  insert into public.part_events (tenant_id, part_item_id, event_type, asset_id, position, part_hours, occurred_at)
+  values (t, pid, 'installed', a.id, p_position, 0, gone - interval '480 days');
+  insert into public.part_events (tenant_id, part_item_id, event_type, asset_id, position, part_hours, reason_code, occurred_at)
+  values (t, pid, 'removed', a.id, p_position, p_part_hours, p_reason, gone);
+  insert into public.part_events (tenant_id, part_item_id, event_type, part_hours, reason_code, occurred_at)
+  values (t, pid, 'scrapped', p_part_hours, p_reason, gone);
+end $$;
+
+-- 29.5R25 (yükleyiciler): aşınmayla biten ~6.800 saat, kesikle biten ~2.400 saat
+select pg_temp.seed_removed('LD-07', 'A1-L', '51111111-0000-0000-0000-000000000001', 'MX29-0188', 6800, 'worn_out', 205);
+select pg_temp.seed_removed('LD-07', 'A1-R', '51111111-0000-0000-0000-000000000001', 'MX29-0189', 7100, 'worn_out', 205);
+select pg_temp.seed_removed('LD-09', 'A2-L', '51111111-0000-0000-0000-000000000001', 'MX29-0204', 6500, 'worn_out', 160);
+select pg_temp.seed_removed('LD-07', 'A2-L', '51111111-0000-0000-0000-000000000001', 'MX29-0231', 2100, 'cut', 300);
+select pg_temp.seed_removed('LD-07', 'A2-R', '51111111-0000-0000-0000-000000000001', 'MX29-0232', 3400, 'cut', 240);
+select pg_temp.seed_removed('LD-07', 'A2-L', '51111111-0000-0000-0000-000000000001', 'MX29-0260', 1800, 'cut', 110);
+select pg_temp.seed_removed('LD-09', 'A1-R', '51111111-0000-0000-0000-000000000001', 'MX29-0245', 2900, 'impact', 275);
+select pg_temp.seed_removed('LD-09', 'A1-L', '51111111-0000-0000-0000-000000000001', 'MX29-0251', 4100, 'pressure_loss', 130);
+-- 18.00-25 (reach stacker)
+select pg_temp.seed_removed('RS-02', 'A1-LO', '51111111-0000-0000-0000-000000000002', 'BS18-2101', 5200, 'worn_out', 320);
+select pg_temp.seed_removed('RS-02', 'A1-RO', '51111111-0000-0000-0000-000000000002', 'BS18-2102', 4900, 'worn_out', 320);
+select pg_temp.seed_removed('RS-02', 'A2-L',  '51111111-0000-0000-0000-000000000002', 'BS18-2140', 3100, 'separation', 190);
+select pg_temp.seed_removed('RS-02', 'A1-LI', '51111111-0000-0000-0000-000000000002', 'BS18-2155', 2600, 'cut', 95);
+-- forklift dolgu lastiği ve bir silindir
+select pg_temp.seed_removed('FL-14', 'A1-L', '51111111-0000-0000-0000-000000000003', 'TB07-0911', 3900, 'worn_out', 150);
+select pg_temp.seed_removed('FL-14', 'A1-R', '51111111-0000-0000-0000-000000000003', 'TB07-0912', 1500, 'impact', 60);
+select pg_temp.seed_removed('LD-07', 'LIFT-CYL-L', '51111111-0000-0000-0000-000000000005', 'VL-220-0031', 9800, 'leak', 220);
 
 -- ---------- Sarf malzemeleri ve stok hareketleri (Faz 2) ----------
 insert into public.parts (id, tenant_id, category_id, manufacturer, part_no, name, specs, list_cost, min_stock, unit)

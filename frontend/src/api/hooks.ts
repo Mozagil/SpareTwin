@@ -1,14 +1,35 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
+import { registerCategories } from "../lib/format";
 import type {
   AssetDetail,
   AssetModel,
   AssetSummary,
   CatalogPart,
   Category,
+  CategoryIn,
+  AuditRow,
+  Bom,
+  BomImportResult,
+  BomLine,
+  Buildable,
+  OperationReportRow,
+  ProductBom,
+  ProductBomImportResult,
+  ProductBomRow,
+  ProductionOrder,
+  ScrapReason,
+  ScrapReport,
+  CostReport,
+  ProductionOrderRow,
+  RouteOperation,
   InspectionSummary,
   Notification,
+  NotificationList,
+  NotificationState,
+  Organization,
   QcFlag,
+  RemovalReasons,
   RimRow,
   CategoryDef,
   Costs,
@@ -31,7 +52,31 @@ import type {
   PartListItem,
   Site,
   Template,
+  TemplateIn,
+  Thresholds,
+  MaintenanceDue,
+  MaintenancePlan,
+  MaintenancePlanIn,
+  AssetMaintenance,
+  TcoReport,
+  WorkOrder,
+  WorkOrderDetail,
+  WorkOrderIn,
+  WorkOrderPatch,
+  WoStatusIn,
+  PurchaseNeed,
+  PurchaseOrder,
+  PurchaseOrderDetail,
+  PurchaseOrderIn,
+  ReceiveIn,
+  Supplier,
+  SupplierComparison,
+  SupplierIn,
   TireCost,
+  TransferAccepted,
+  TransferPreview,
+  TransferRow,
+  PendingTransfer,
   Wear,
 } from "./types";
 
@@ -67,6 +112,10 @@ export const useWear = (id: string | undefined, enabled = true) =>
   });
 
 export const useTireCost = () => useQuery({ queryKey: ["tire-cost"], queryFn: () => api<TireCost[]>("/reports/tire-cost") });
+/** Anahtar "parts" ile başlar: parça sökülünce kendiliğinden tazelenir. */
+export const useRemovalReasons = (months = 12, category?: string) =>
+  useQuery({ queryKey: ["parts", "removal-reasons", months, category ?? "all"],
+             queryFn: () => api<RemovalReasons>("/reports/removal-reasons", { query: { months, category } }) });
 export const useSites = () => useQuery({ queryKey: ["sites"], queryFn: () => api<Site[]>("/sites") });
 export const useTemplates = () => useQuery({ queryKey: ["templates"], queryFn: () => api<Template[]>("/catalog/templates") });
 export const useAssetModels = () =>
@@ -77,7 +126,12 @@ export const useCatalogParts = (category?: string) =>
     queryFn: () => api<CatalogPart[]>("/catalog/parts", { query: { category } }),
   });
 export const useCategories = () =>
-  useQuery({ queryKey: ["categories"], queryFn: () => api<Category[]>("/catalog/categories"), staleTime: 10 * 60_000 });
+  useQuery({
+    queryKey: ["categories"],
+    // Firmanın kendi tiplerinin adı da her yerde (süzgeç, liste, bildirim) görünsün
+    queryFn: () => api<Category[]>("/catalog/categories").then((rows) => (registerCategories(rows), rows)),
+    staleTime: 10 * 60_000,
+  });
 
 // ---------- Yazma ----------
 /** Parça veya makine durumu değişince ilgili tüm görünümleri tazeler. */
@@ -153,11 +207,190 @@ export function useCreate<TBody, TOut = unknown>(path: string, invalidate: strin
   });
 }
 
+/** Parça tipi: id varsa günceller (kod ve izleme şekli değişmez), yoksa ekler. */
+export function useCategoryActions() {
+  const qc = useQueryClient();
+  const done = () => Promise.all(["categories", "catalog-parts", "templates"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  const save = useMutation({
+    mutationFn: ({ id, ...body }: CategoryIn & { id?: string }) =>
+      id ? api<Category>(`/catalog/categories/${id}`, { method: "PATCH", body: { ...body, code: undefined, is_serialized: undefined } })
+         : api<Category>("/catalog/categories", { method: "POST", body }),
+    onSuccess: done,
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api<void>(`/catalog/categories/${id}`, { method: "DELETE" }),
+    onSuccess: done,
+  });
+  return { save, remove };
+}
+
+/** Pozisyon şablonu: id varsa pozisyonlarıyla birlikte günceller, yoksa ekler. */
+export function useTemplateActions() {
+  const qc = useQueryClient();
+  const done = () => Promise.all(["templates", "asset-models", "asset", "assets"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  const save = useMutation({
+    mutationFn: ({ id, ...body }: TemplateIn & { id?: string }) =>
+      id ? api<Template>(`/catalog/templates/${id}`, { method: "PUT", body })
+         : api<Template>("/catalog/templates", { method: "POST", body }),
+    onSuccess: done,
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api<void>(`/catalog/templates/${id}`, { method: "DELETE" }),
+    onSuccess: done,
+  });
+  return { save, remove };
+}
+
+/** Makine modelinin pozisyon şablonunu değiştirir; takılı parçaların yuvası yeni şablonda yoksa API reddeder. */
+export function useSetModelTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { modelId: string; template_id: string }) =>
+      api(`/catalog/asset-models/${v.modelId}`, { method: "PATCH", body: { template_id: v.template_id } }),
+    onSuccess: () => Promise.all(["asset-models", "templates", "asset", "assets"].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
+  });
+}
+
+// ---------- Model parça listesi (BOM) ----------
+export const useBom = (modelId: string) =>
+  useQuery({ queryKey: ["bom", modelId], queryFn: () => api<Bom>(`/catalog/asset-models/${modelId}/bom`) });
+
+export function useBomActions(modelId: string) {
+  const qc = useQueryClient();
+  const base = `/catalog/asset-models/${modelId}/bom`;
+  // Liste makine sayfasındaki "uygun parça" bilgisini de değiştirir
+  const done = () => Promise.all(["bom", "asset-models", "asset"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  return {
+    add: useMutation({
+      mutationFn: (body: { part_id: string; position_code: string | null; qty: number; notes?: string | null }) =>
+        api<BomLine[]>(base, { method: "POST", body }),
+      onSuccess: done,
+    }),
+    remove: useMutation({ mutationFn: (lineId: number) => api<void>(`${base}/${lineId}`, { method: "DELETE" }), onSuccess: done }),
+    importFile: useMutation({
+      mutationFn: (file: File) => {
+        const form = new FormData();
+        form.append("file", file);
+        return api<BomImportResult>(`${base}/import`, { method: "POST", form });
+      },
+      onSuccess: done,
+    }),
+  };
+}
+
+// ---------- Üretim: ürün ağacı ----------
+export const useProductBoms = () =>
+  useQuery({ queryKey: ["product-boms"], queryFn: () => api<ProductBomRow[]>("/production/boms") });
+export const useProductBom = (id: string) =>
+  useQuery({ queryKey: ["product-boms", id], queryFn: () => api<ProductBom>(`/production/boms/${id}`) });
+
+// Stok ve sipariş değişince sonuç değişir: her açılışta yeniden sorulur
+export const useBuildable = (bomId: string, qty: number) =>
+  useQuery({
+    queryKey: ["product-boms", bomId, "buildable", qty], queryFn: () => api<Buildable>(`/production/boms/${bomId}/buildable`, { query: { qty } }),
+    placeholderData: (prev) => prev, staleTime: 0,
+  });
+
+export function useProductBomActions() {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: ["product-boms"] });
+  return {
+    create: useMutation({
+      mutationFn: (body: { part_id: string }) => api<ProductBom>("/production/boms", { method: "POST", body }),
+      onSuccess: done,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => api<void>(`/production/boms/${id}`, { method: "DELETE" }), onSuccess: done }),
+    addLine: useMutation({
+      mutationFn: ({ bomId, ...body }: { bomId: string; part_id: string; qty: number; notes?: string | null }) =>
+        api<ProductBom>(`/production/boms/${bomId}/lines`, { method: "POST", body }),
+      onSuccess: done,
+    }),
+    removeLine: useMutation({
+      mutationFn: ({ bomId, lineId }: { bomId: string; lineId: number }) =>
+        api<void>(`/production/boms/${bomId}/lines/${lineId}`, { method: "DELETE" }),
+      onSuccess: done,
+    }),
+    importFile: useMutation({
+      mutationFn: (file: File) => {
+        const form = new FormData();
+        form.append("file", file);
+        return api<ProductBomImportResult>("/production/boms/import", { method: "POST", form });
+      },
+      onSuccess: done,
+    }),
+  };
+}
+
+// ---------- Üretim: rota, emir, işlem süresi ----------
+export const useRoute = (bomId: string) =>
+  useQuery({ queryKey: ["product-route", bomId], queryFn: () => api<RouteOperation[]>(`/production/routes/${bomId}`) });
+
+export function useSaveRoute(bomId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (operations: { name: string; planned_minutes: number | null; machine_rate: number | null }[]) =>
+      api<RouteOperation[]>(`/production/routes/${bomId}`, { method: "PUT", body: { operations } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["product-route", bomId] }),
+  });
+}
+
+export const useProductionOrders = () =>
+  useQuery({ queryKey: ["production-orders"], queryFn: () => api<ProductionOrderRow[]>("/production/orders") });
+// Süren kayıt varken süre ilerler: yarım dakikada bir yenilenir
+export const useProductionOrder = (id: string) =>
+  useQuery({
+    queryKey: ["production-orders", id], queryFn: () => api<ProductionOrder>(`/production/orders/${id}`),
+    refetchInterval: (q) => (q.state.data && q.state.data.running > 0 ? 30_000 : false),
+  });
+export const useOperationReport = (months: number) =>
+  useQuery({ queryKey: ["production-orders", "report", months], queryFn: () => api<OperationReportRow[]>(`/production/reports/operations?months=${months}`) });
+
+export const useScrapReport = (months: number) =>
+  useQuery({ queryKey: ["production-orders", "scrap", months], queryFn: () => api<ScrapReport>(`/production/reports/scrap?months=${months}`) });
+
+export const useCostReport = (months: number) =>
+  useQuery({ queryKey: ["production-orders", "cost", months], queryFn: () => api<CostReport>(`/production/reports/cost?months=${months}`) });
+
+export function useProductionOrderActions() {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: ["production-orders"] });
+  return {
+    create: useMutation({
+      mutationFn: (body: { part_id: string; qty: number; due_at: string | null; notes: string | null }) =>
+        api<ProductionOrder>("/production/orders", { method: "POST", body }),
+      onSuccess: done,
+    }),
+    start: useMutation({
+      mutationFn: ({ orderId, opId }: { orderId: string; opId: string }) =>
+        api<ProductionOrder>(`/production/orders/${orderId}/ops/${opId}/start`, { method: "POST" }),
+      onSuccess: done,
+    }),
+    stop: useMutation({
+      mutationFn: ({ orderId, opId, done: finished }: { orderId: string; opId: string; done: boolean }) =>
+        api<ProductionOrder>(`/production/orders/${orderId}/ops/${opId}/stop`, { method: "POST", body: { done: finished } }),
+      onSuccess: done,
+    }),
+    setStatus: useMutation({
+      mutationFn: ({ orderId, status }: { orderId: string; status: "cancelled" }) =>
+        api<ProductionOrder>(`/production/orders/${orderId}/status`, { method: "POST", body: { status } }),
+      onSuccess: done,
+    }),
+    // Tamamlama stoku da değiştirir: stok ve üretilebilirlik yeniden sorulur
+    finish: useMutation({
+      mutationFn: ({ orderId, ...body }: {
+        orderId: string; site_id: string | null; good_qty: number; scrap_qty: number; scrap_reason: ScrapReason | null;
+        materials: { part_id: string; actual_qty: number; reason: ScrapReason | null }[];
+      }) => api<ProductionOrder>(`/production/orders/${orderId}/finish`, { method: "POST", body }),
+      onSuccess: () => { done(); qc.invalidateQueries({ queryKey: ["stock"] }); qc.invalidateQueries({ queryKey: ["product-boms"] }); },
+    }),
+  };
+}
+
 /** Görsel yükle / kaldır. path örn. "/catalog/parts/{id}/image" */
 export function useImage(path: string) {
   const qc = useQueryClient();
   const refresh = () =>
-    Promise.all(["assets", "asset", "part", "catalog-parts", "asset-models"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+    Promise.all(["assets", "asset", "part", "catalog-parts", "asset-models", "templates"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
   const upload = useMutation({
     mutationFn: (file: File) => {
       const form = new FormData();
@@ -225,10 +458,10 @@ export function useInspectionActions(id: string) {
 // ---------- Jantlar ve bildirimler ----------
 export const useRims = () => useQuery({ queryKey: ["rims"], queryFn: () => api<RimRow[]>("/rims/compliance") });
 
-export const useNotifications = () =>
+export const useNotifications = (includeDismissed = false) =>
   useQuery({
-    queryKey: ["notifications"],
-    queryFn: () => api<{ items: Notification[]; unread: number }>("/notifications"),
+    queryKey: ["notifications", includeDismissed],
+    queryFn: () => api<NotificationList>("/notifications", { query: { include_dismissed: includeDismissed || undefined } }),
     refetchInterval: 60_000, // dakikada bir tazele
   });
 
@@ -239,6 +472,34 @@ export function useMarkRead() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 }
+
+/** Üstlen / gizle / geri al: ekip bazlı, saha rolü ve üstü. */
+export function useNotificationState() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { key: string; state: NotificationState | null; note?: string }) =>
+      api<Notification>("/notifications/state", { method: "POST", body: v }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
+// ---------- Firma ayarları ve denetim kaydı ----------
+export const useOrganization = () =>
+  useQuery({ queryKey: ["organization"], queryFn: () => api<Organization>("/organization"), staleTime: 5 * 60_000 });
+
+export function useUpdateOrganization() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { name?: string; thresholds?: Thresholds }) => api<Organization>("/organization", { method: "PATCH", body: v }),
+    // Eşikler bant hesabını değiştirir: filo, parça, jant ve bildirim görünümleri tazelenir
+    onSuccess: () =>
+      Promise.all(["organization", "assets", "asset", "parts", "part", "rims", "notifications", "audit"].map((k) =>
+        qc.invalidateQueries({ queryKey: [k] }))),
+  });
+}
+
+export const useAudit = (f: { q?: string; limit?: number; entity_id?: string }) =>
+  useQuery({ queryKey: ["audit", f], queryFn: () => api<AuditRow[]>("/audit", { query: { ...f } }) });
 
 // ---------- Stok ----------
 export const useStock = (f: { category?: string; below?: boolean; q?: string }) =>

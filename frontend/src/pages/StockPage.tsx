@@ -108,6 +108,11 @@ function StockDetail({ row, siteName, onClose }: { row: StockRow; siteName: (id:
           <div className="fact"><dt>Kritik seviye</dt><dd>{q(row.min_stock, row.unit)}</dd></div>
           <div className="fact"><dt>Değer</dt><dd>{usd(row.value)}</dd></div>
         </dl>
+        {can("technician") && (row.min_stock > Number(row.qty) || Number(row.qty) === 0) && (
+          <div className="actions">
+            <Link className="btn btn-ghost" to={`/satinalma?yeni=${row.part_id}`}>Sipariş talebi aç</Link>
+          </div>
+        )}
         {(row.sites?.length ?? 0) > 0 && (
           <div className="site-chips">{row.sites!.map((s) => <span key={s.site_id ?? "genel"} className="chip chip-plain">{siteName(s.site_id)}: {q(s.qty, row.unit)}</span>)}</div>
         )}

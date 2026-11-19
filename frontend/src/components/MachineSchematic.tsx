@@ -4,10 +4,10 @@ import type { KeyboardEvent } from "react";
 import type { Layout, Position } from "../api/types";
 import { BAND_LABEL, pct } from "../lib/format";
 
-const X = (v: number) => 40 + v * 5.6;
-const Y = (v: number) => 20 + v * 3.2;
+export const X = (v: number) => 40 + v * 5.6;
+export const Y = (v: number) => 20 + v * 3.2;
 
-function Body({ layout }: { layout: Layout | null }) {
+export function Body({ layout }: { layout: Layout | null }) {
   const s = { fill: "var(--body)", stroke: "var(--body-edge)", strokeWidth: 2 };
   const cab = { fill: "var(--surface)", stroke: "var(--body-edge)", strokeWidth: 2 };
   if (layout === "loader")
@@ -45,6 +45,12 @@ function Body({ layout }: { layout: Layout | null }) {
   return <rect x={X(8)} y={Y(20)} width={X(92) - X(8)} height={Y(80) - Y(20)} rx={16} {...s} />;
 }
 
+/** Şemanın arka planı: firmanın şablona yüklediği makine resmi, yoksa makine tipinin hazır gövde çizimi. */
+export function Backdrop({ layout, image }: { layout: Layout | null; image?: string | null }) {
+  if (!image) return <Body layout={layout} />;
+  return <image href={image} x={0} y={0} width={640} height={360} preserveAspectRatio="xMidYMid meet" className="sch-image" />;
+}
+
 const bandColor = (b: Position["band"]) => (b === "empty" ? "var(--surface-2)" : `var(--${b})`);
 
 function slotA11y(p: Position) {
@@ -55,13 +61,15 @@ function slotA11y(p: Position) {
 
 interface Props {
   layout: Layout | null;
+  /** Şablonun makine resmi (varsa gövde çizimi yerine) */
+  image?: string | null;
   positions: Position[];
   selected?: string | null;
   showAll: boolean;
   onSelect: (p: Position) => void;
 }
 
-export function MachineSchematic({ layout, positions, selected, showAll, onSelect }: Props) {
+export function MachineSchematic({ layout, image, positions, selected, showAll, onSelect }: Props) {
   const tireW = layout === "reach_stacker" ? 56 : 70;
   const tireH = layout === "reach_stacker" ? 34 : 50;
   const visible = positions.filter((p) => p.x != null && p.y != null && (showAll || p.category_code === "tire"));
@@ -75,9 +83,9 @@ export function MachineSchematic({ layout, positions, selected, showAll, onSelec
 
   return (
     <svg className="schematic" viewBox="0 0 640 360" role="group" aria-label="Makine üstten görünüş şeması">
-      <text x={X(-4)} y={18} className="sch-label">ön</text>
-      <text x={X(96)} y={18} className="sch-label" textAnchor="end">arka</text>
-      <Body layout={layout} />
+      {!image && <text x={X(-4)} y={18} className="sch-label">ön</text>}
+      {!image && <text x={X(96)} y={18} className="sch-label" textAnchor="end">arka</text>}
+      <Backdrop layout={layout} image={image} />
       {visible
         .filter((p) => p.category_code === "tire")
         .map((p) => {
@@ -122,7 +130,8 @@ export function MachineSchematic({ layout, positions, selected, showAll, onSelec
           const c = bandColor(p.band);
           const empty = !p.part_item_id;
           const shapeProps = empty
-            ? { fill: "none", stroke: "var(--muted)", strokeWidth: 2, strokeDasharray: "4 3" }
+            // Makine resminin üzerinde boş yuva kaybolmasın: yarı saydam zemin
+            ? { fill: image ? "var(--surface)" : "none", fillOpacity: 0.8, stroke: image ? "var(--ink)" : "var(--muted)", strokeWidth: 2, strokeDasharray: "4 3" }
             : { fill: c };
           return (
             <g key={p.code} className="slot" tabIndex={0} role="button" aria-pressed={selected === p.code}
