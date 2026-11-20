@@ -10,13 +10,15 @@ import { num, num1, usd } from "../lib/format";
 import { flatten, leafTotals } from "../lib/production";
 import { OperationReportPanel, OrderModal, OrdersPanel } from "./ProductionOrdersPanel";
 import { BuildablePanel } from "./BuildablePanel";
+import { EbomPanel } from "./EbomPanel";
 import { CostReportPanel } from "./ProductionCost";
 import { ScrapReportPanel } from "./ProductionScrap";
 import { RoutePanel } from "./RoutePanel";
 
-type Tab = "agaclar" | "emirler" | "rapor";
+type Tab = "agaclar" | "ebom" | "emirler" | "rapor";
 const TABS: { key: Tab; label: string }[] = [
-  { key: "agaclar", label: "Ürün ağaçları" }, { key: "emirler", label: "Üretim emirleri" }, { key: "rapor", label: "Raporlar" },
+  { key: "agaclar", label: "Ürün ağaçları" }, { key: "ebom", label: "Mühendislik ağacı" },
+  { key: "emirler", label: "Üretim emirleri" }, { key: "rapor", label: "Raporlar" },
 ];
 
 const qty = (v: number | string, unit: string | null) => `${Number.isInteger(Number(v)) ? num(Number(v)) : num1(Number(v))} ${unit ?? ""}`.trim();
@@ -33,6 +35,7 @@ export function ProductionPage() {
         {TABS.map((t) => <button key={t.key} role="tab" aria-selected={t.key === tab} onClick={() => setParams(t.key === "agaclar" ? {} : { sekme: t.key }, { replace: true })}>{t.label}</button>)}
       </div>
       {tab === "agaclar" && <BomsPanel />}
+      {tab === "ebom" && <EbomPanel />}
       {tab === "emirler" && <OrdersPanel onOpen={(id) => set("emir", id)} />}
       {tab === "rapor" && <div className="stack prod-reports"><CostReportPanel /><OperationReportPanel /><ScrapReportPanel /></div>}
       {openId && <OrderModal id={openId} onClose={() => set("emir", "")} />}

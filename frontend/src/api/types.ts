@@ -402,6 +402,80 @@ export interface Buildable {
   lines: BuildableLine[];
 }
 
+// ---------- Üretim: mühendislik ağacı (eBOM) ve eBOM → mBOM kuralları ----------
+export type RuleAction = "flatten" | "exclude" | "substitute" | "add" | "scrap";
+export interface BomRuleIn {
+  action: RuleAction;
+  match_part_id: string | null;
+  match_category: string | null;
+  target_part_id?: string | null;
+  qty?: number | null;
+  per?: "product" | "match" | null;
+  scrap_pct?: number | null;
+}
+export interface BomRule extends Required<BomRuleIn> {
+  id: string;
+  is_active: boolean;
+  match_name: string | null;
+  target_name: string | null;
+  /** Kuralın tek satırlık anlatımı; önizlemede satırların yanında da bu yazar */
+  label: string;
+}
+export interface EbomRow {
+  id: string;
+  part_id: string;
+  name: string | null;
+  part_no: string | null;
+  line_count: number;
+  /** Bu ürünün üretim ağacı; yoksa henüz dönüştürülmemiş */
+  mbom_id: string | null;
+  /** Üretim ağacı, kurallar uygulanmış eBOM ile aynı mı */
+  in_sync: boolean;
+}
+export interface EbomLine {
+  line_id: number;
+  part_id: string;
+  name: string | null;
+  part_no: string | null;
+  unit: string | null;
+  category_code: string | null;
+  qty: number;
+  notes: string | null;
+  has_ebom: boolean;
+}
+export interface MbomLine {
+  part_id: string;
+  name: string | null;
+  part_no: string | null;
+  unit: string | null;
+  qty: number;
+  /** null: tasarımda yok, kuralla eklendi */
+  ebom_qty: number | null;
+  rules: string[];
+  /** Değiştirme kuralıyla hangi kalemin yerine geçti */
+  from_name: string | null;
+  /** Bugünkü üretim ağacındaki miktar */
+  current_qty: number | null;
+  status: "new" | "changed" | "same";
+}
+export interface Ebom {
+  id: string;
+  part_id: string;
+  name: string | null;
+  part_no: string | null;
+  unit: string | null;
+  notes: string | null;
+  lines: EbomLine[];
+  mbom: {
+    mbom_id: string | null;
+    lines: MbomLine[];
+    removed: { part_id: string; name: string | null; qty: number; action: RuleAction; rule: string }[];
+    /** Üretim ağacında olup dönüşümde olmayan satırlar: yazınca silinir */
+    dropped: { part_id: string; name: string | null; unit: string | null; qty: number }[];
+    in_sync: boolean;
+  };
+}
+
 // ---------- Üretim: rota, emir, işlem süresi ----------
 export interface RouteOperation {
   id: number;

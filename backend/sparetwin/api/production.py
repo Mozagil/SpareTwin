@@ -52,13 +52,18 @@ def _parts(conn, tenant_id: UUID) -> dict[UUID, dict]:
              from public.v_stock_totals where tenant_id = %s""", [tenant_id]).fetchall()}
 
 
-def _edges(conn, tenant_id: UUID) -> dict[UUID, list[dict]]:
+# Üretim ağacı (mBOM) ve mühendislik ağacı (eBOM, 0025) aynı biçimdedir; tablo adı buradan seçilir.
+MBOM = ("boms", "bom_lines")
+EBOM = ("eboms", "ebom_lines")
+
+
+def _edges(conn, tenant_id: UUID, tables: tuple[str, str] = MBOM) -> dict[UUID, list[dict]]:
     """Üretilen kalem → bileşen satırları (firmanın bütün ürün ağaçları)."""
     out: dict[UUID, list[dict]] = {}
     for r in conn.execute(
-        """select b.part_id as parent_id, l.id, l.part_id, l.qty, l.notes
-             from public.boms b
-             left join public.bom_lines l on l.bom_id = b.id
+        f"""select b.part_id as parent_id, l.id, l.part_id, l.qty, l.notes
+             from public.{tables[0]} b
+             left join public.{tables[1]} l on l.bom_id = b.id
             where b.tenant_id = %s order by l.id""", [tenant_id]).fetchall():
         rows = out.setdefault(r["parent_id"], [])
         if r["id"] is not None:
@@ -279,9 +284,8 @@ def _read(data: bytes) -> list[dict]:
     return out
 
 
-@router.post("/import", summary="Ürün ağaçlarını Excel'den içe aktar (hata varsa hiçbir satır yazılmaz)")
-def import_boms(ctx: TenantCtx, file: Annotated[UploadFile, File(description=".xlsx")]):
-    ctx.require("manager")
+def import_file(ctx, file: UploadFile, tables: tuple[str, str] = MBOM) -> dict:
+    """Excel'deki satırları ürün ağaçlarına (ya da eBOM'lara) yazar; hata varsa hiçbirini yazmaz."""
     data = file.file.read(MAX_BYTES + 1)
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "Dosya en fazla 2 MB olabilir")
@@ -297,7 +301,7 @@ def import_boms(ctx: TenantCtx, file: Annotated[UploadFile, File(description=".x
                 where part_no is not null and (tenant_id is null or tenant_id = %s)
                 order by tenant_id nulls first""", [ctx.tenant_id]).fetchall():
             catalog[p["part_no"]] = p["id"]
-        edges = _edges(conn, ctx.tenant_id)
+        edges = _edges(conn, ctx.tenant_id, tables)
         graph = {k: [{"part_id": l["part_id"]} for l in v] for k, v in edges.items()}
         plan = []
         for r in rows:
@@ -327,19 +331,25 @@ def import_boms(ctx: TenantCtx, file: Annotated[UploadFile, File(description=".x
         if errors:
             return {"boms_created": 0, "added": 0, "existing": 0, "errors": errors}
         bom_ids = {r["part_id"]: r["id"] for r in conn.execute(
-            "select id, part_id from public.boms where tenant_id = %s", [ctx.tenant_id]).fetchall()}
+            f"select id, part_id from public.{tables[0]} where tenant_id = %s", [ctx.tenant_id]).fetchall()}
         created = added = 0
         for parent, part, qty, notes in plan:
             if parent not in bom_ids:
                 bom_ids[parent] = conn.execute(
-                    "insert into public.boms (tenant_id, part_id, created_by) values (%s, %s, %s) returning id",
+                    f"insert into public.{tables[0]} (tenant_id, part_id, created_by) values (%s, %s, %s) returning id",
                     [ctx.tenant_id, parent, ctx.user_id]).fetchone()["id"]
                 created += 1
             added += conn.execute(
-                """insert into public.bom_lines (tenant_id, bom_id, part_id, qty, notes) values (%s, %s, %s, %s, %s)
+                f"""insert into public.{tables[1]} (tenant_id, bom_id, part_id, qty, notes) values (%s, %s, %s, %s, %s)
                    on conflict (bom_id, part_id) do nothing""",
                 [ctx.tenant_id, bom_ids[parent], part, qty, notes]).rowcount
         return {"boms_created": created, "added": added, "existing": len(plan) - added, "errors": []}
+
+
+@router.post("/import", summary="Ürün ağaçlarını Excel'den içe aktar (hata varsa hiçbir satır yazılmaz)")
+def import_boms(ctx: TenantCtx, file: Annotated[UploadFile, File(description=".xlsx")]):
+    ctx.require("manager")
+    return import_file(ctx, file)
 
 
 # ---------- Tek ürün ağacı ----------

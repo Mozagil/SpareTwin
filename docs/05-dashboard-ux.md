@@ -51,6 +51,7 @@ Durum renkleri her zaman metinle birlikte kullanılır (renk körlüğü): "Krit
 | Parçalar | `/parcalar` | 0 | ✅ | `GET /parts` (filtreler adres çubuğunda) |
 | Kayıt | `/kayit?sekme=…` | 0 | ✅ | teslim al, makine, katalog kalemi, makine modeli, saha |
 | Excel'den içe aktar | `/kayit?sekme=excel` | 1 | ✅ | `GET /import/tires/template`, `POST /import/tires?dry_run=` |
+| Mühendislik ağacı (eBOM) | `/uretim?sekme=ebom` | 4 | ✅ | `GET|POST /production/eboms`, `/eboms/import`, `/eboms/{id}` (mBOM önizlemesiyle), `/eboms/{id}/apply`, `GET|POST|PATCH|DELETE /production/bom-rules` |
 | Makine devral | `/kayit?sekme=devral`, makine sayfası | 4 | ✅ | `POST /assets/{id}/transfer`, `GET /transfers/preview`, `POST /transfers/accept`, `POST /transfers/{id}/cancel`, `GET /transfers` |
 | QR etiketleri | `/etiketler` | 0 | ✅ | `POST /labels` → yazdırma sayfası yeni sekmede |
 | QR / seri no arama | üst çubuk | 0 | ✅ | `GET /qr/{kod}` |

@@ -61,6 +61,10 @@ import type {
   SupplierIn,
   TireCost,
   TransferAccepted,
+  BomRule,
+  BomRuleIn,
+  Ebom,
+  EbomRow,
   TransferPreview,
   TransferRow,
   PendingTransfer,
@@ -653,5 +657,64 @@ export function useTransferActions() {
         api<TransferAccepted>("/transfers/accept", { method: "POST", body: b }),
       onSuccess: refresh,
     }),
+  };
+}
+
+// ---------- Üretim: mühendislik ağacı (eBOM) ve kurallar ----------
+export const useEboms = () => useQuery({ queryKey: ["eboms"], queryFn: () => api<EbomRow[]>("/production/eboms") });
+export const useEbom = (id: string) =>
+  useQuery({ queryKey: ["eboms", id], queryFn: () => api<Ebom>(`/production/eboms/${id}`) });
+export const useBomRules = () => useQuery({ queryKey: ["bom-rules"], queryFn: () => api<BomRule[]>("/production/bom-rules") });
+
+export function useEbomActions() {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: ["eboms"] });
+  return {
+    create: useMutation({
+      mutationFn: (body: { part_id: string }) => api<Ebom>("/production/eboms", { method: "POST", body }),
+      onSuccess: done,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => api<void>(`/production/eboms/${id}`, { method: "DELETE" }), onSuccess: done }),
+    addLine: useMutation({
+      mutationFn: ({ ebomId, ...body }: { ebomId: string; part_id: string; qty: number }) =>
+        api<Ebom>(`/production/eboms/${ebomId}/lines`, { method: "POST", body }),
+      onSuccess: done,
+    }),
+    removeLine: useMutation({
+      mutationFn: ({ ebomId, lineId }: { ebomId: string; lineId: number }) =>
+        api<void>(`/production/eboms/${ebomId}/lines/${lineId}`, { method: "DELETE" }),
+      onSuccess: done,
+    }),
+    importFile: useMutation({
+      mutationFn: (file: File) => {
+        const form = new FormData();
+        form.append("file", file);
+        return api<ProductBomImportResult>("/production/eboms/import", { method: "POST", form });
+      },
+      onSuccess: done,
+    }),
+    // Üretim ağacı değişir: ürün ağaçları, üretilebilirlik ve maliyet de tazelenir
+    apply: useMutation({
+      mutationFn: (id: string) => api<Ebom>(`/production/eboms/${id}/apply`, { method: "POST" }),
+      onSuccess: () => Promise.all([done(), qc.invalidateQueries({ queryKey: ["product-boms"] })]),
+    }),
+  };
+}
+
+/** Kural değişince bütün eBOM önizlemeleri değişir. */
+export function useBomRuleActions() {
+  const qc = useQueryClient();
+  const done = () => Promise.all(["bom-rules", "eboms"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+  return {
+    create: useMutation({
+      mutationFn: (body: BomRuleIn) => api<BomRule>("/production/bom-rules", { method: "POST", body }),
+      onSuccess: done,
+    }),
+    toggle: useMutation({
+      mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+        api<BomRule>(`/production/bom-rules/${id}`, { method: "PATCH", body: { is_active } }),
+      onSuccess: done,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => api<void>(`/production/bom-rules/${id}`, { method: "DELETE" }), onSuccess: done }),
   };
 }
