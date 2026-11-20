@@ -11,14 +11,16 @@ import { flatten, leafTotals } from "../lib/production";
 import { OperationReportPanel, OrderModal, OrdersPanel } from "./ProductionOrdersPanel";
 import { BuildablePanel } from "./BuildablePanel";
 import { EbomPanel } from "./EbomPanel";
+import { EngCalcPanel } from "./EngCalcPanel";
 import { CostReportPanel } from "./ProductionCost";
 import { ScrapReportPanel } from "./ProductionScrap";
 import { RoutePanel } from "./RoutePanel";
 
-type Tab = "agaclar" | "ebom" | "emirler" | "rapor";
+type Tab = "agaclar" | "ebom" | "emirler" | "rapor" | "hesap";
 const TABS: { key: Tab; label: string }[] = [
   { key: "agaclar", label: "Ürün ağaçları" }, { key: "ebom", label: "Mühendislik ağacı" },
   { key: "emirler", label: "Üretim emirleri" }, { key: "rapor", label: "Raporlar" },
+  { key: "hesap", label: "Hesap araçları" },
 ];
 
 const qty = (v: number | string, unit: string | null) => `${Number.isInteger(Number(v)) ? num(Number(v)) : num1(Number(v))} ${unit ?? ""}`.trim();
@@ -36,6 +38,7 @@ export function ProductionPage() {
       </div>
       {tab === "agaclar" && <BomsPanel />}
       {tab === "ebom" && <EbomPanel />}
+      {tab === "hesap" && <EngCalcPanel />}
       {tab === "emirler" && <OrdersPanel onOpen={(id) => set("emir", id)} />}
       {tab === "rapor" && <div className="stack prod-reports"><CostReportPanel /><OperationReportPanel /><ScrapReportPanel /></div>}
       {openId && <OrderModal id={openId} onClose={() => set("emir", "")} />}

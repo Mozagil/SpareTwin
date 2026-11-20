@@ -678,3 +678,11 @@ input[aria-invalid="true"] { border-color: var(--critical); }
 .rule-form { border-top: 1px solid var(--line); padding-top: 14px; }
 .rule-form .form-row { align-items: start; }
 .table.mbom-table td:nth-child(4) { max-width: 320px; }
+
+/* ---------- Mühendislik hesap araçları ---------- */
+.calc-note { background: color-mix(in srgb, var(--watch) 14%, transparent); border-left: 4px solid var(--watch);
+             padding: 10px 14px; border-radius: 6px; }
+.calc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; align-items: start; }
+.calc-facts .fact dd { font-size: 22px; }
+.calc-grid .form-row { align-items: start; }
+.calc-warn { margin: 10px 0 0; padding-left: 18px; color: var(--watch); font-size: 13.5px; }
